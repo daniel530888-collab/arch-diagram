@@ -1,0 +1,1501 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px system-ui,sans-serif;background:#fafaf9}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<title>分析圖製圖台</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#ebeee9; --surface:#ffffff; --sunk:#f3f5f1;
+  --ink:#15191a; --ink2:#5b6462; --ink3:#8d9591;
+  --line:#d4d9d2; --line2:#e3e7e1;
+  --accent:#1e5c4c; --accent-ink:#ffffff;
+  --sheet:#fcfcfb; --sheet-ink:#1a1f22; --sheet-ink2:#69726f; --sheet-line:#c8cfca;
+  --ui:"Archivo","Noto Sans TC",system-ui,sans-serif;
+  --mono:"IBM Plex Mono","Noto Sans TC",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1211; --surface:#161a19; --sunk:#111514;
+    --ink:#e9ece9; --ink2:#98a09c; --ink3:#6c7471;
+    --line:#272d2b; --line2:#1e2322;
+    --accent:#66c3a7; --accent-ink:#0e1211;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1211; --surface:#161a19; --sunk:#111514;
+  --ink:#e9ece9; --ink2:#98a09c; --ink3:#6c7471;
+  --line:#272d2b; --line2:#1e2322;
+  --accent:#66c3a7; --accent-ink:#0e1211;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{font-weight:700;letter-spacing:.04em;font-size:15px}
+.brand small{display:block;font-family:var(--mono);font-weight:400;font-size:10px;
+  letter-spacing:.16em;color:var(--ink3);text-transform:uppercase}
+.spacer{flex:1}
+button{font:inherit;cursor:pointer;border-radius:2px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);padding:7px 13px;transition:background .12s,border-color .12s}
+button:hover{border-color:var(--ink3);background:var(--sunk)}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-solid{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn-solid:hover{background:var(--accent);border-color:var(--accent);filter:brightness(1.08)}
+
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:0;
+  min-height:calc(100% - 58px)}
+.rail{background:var(--surface);border-left:1px solid var(--line);
+  padding:4px 20px 48px;display:flex;flex-direction:column}
+.stage{padding:24px 20px 56px;display:flex;flex-direction:column;gap:14px;min-width:0}
+
+.sec{padding:18px 0;border-bottom:1px solid var(--line2)}
+.sec:last-child{border-bottom:0}
+.sec > h2{margin:0 0 10px;font-family:var(--mono);font-size:10px;font-weight:500;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);
+  display:flex;align-items:baseline;gap:8px}
+.sec > h2 b{font-family:var(--ui);font-size:12px;letter-spacing:0;
+  text-transform:none;color:var(--ink2);font-weight:500}
+
+.types{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.type{position:relative;text-align:left;padding:9px 10px;line-height:1.3;
+  display:flex;flex-direction:column;gap:3px;min-height:56px}
+.type span{font-weight:600;font-size:13px}
+.type em{font-style:normal;font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.08em;color:var(--ink3);text-transform:uppercase}
+.type[aria-pressed="true"]{border-color:var(--accent);background:var(--sunk);
+  box-shadow:inset 3px 0 0 var(--accent)}
+.type .rec{position:absolute;top:6px;right:6px;width:6px;height:6px;border-radius:50%;
+  background:var(--accent)}
+.rec-note{margin:9px 0 0;font-size:12px;color:var(--ink2);display:flex;gap:7px;align-items:flex-start}
+.rec-note i{flex:none;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:6px;font-style:normal}
+
+textarea{width:100%;min-height:172px;resize:vertical;padding:11px 12px;
+  font-family:var(--mono);font-size:12.5px;line-height:1.72;
+  background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:2px}
+.hint{margin:8px 0 0;font-size:11.5px;color:var(--ink3);line-height:1.6}
+.hint code{font-family:var(--mono);background:var(--sunk);padding:1px 4px;border:1px solid var(--line2)}
+.row{display:flex;gap:6px;flex-wrap:wrap}
+.seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:6px 11px;font-size:12px;background:transparent}
+.seg button + button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg);font-weight:600}
+
+.styles{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.sty{text-align:left;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+.sty span{font-weight:600;font-size:12.5px}
+.sty svg{display:block;width:100%;height:20px}
+.sty[aria-pressed="true"]{border-color:var(--accent);background:var(--sunk)}
+
+.pals{display:flex;flex-direction:column;gap:6px}
+.pal{display:flex;align-items:center;gap:10px;padding:7px 9px;text-align:left}
+.pal span{font-size:12.5px;font-weight:600;flex:none;width:52px}
+.pal .chips{display:flex;flex:1;height:14px;gap:2px}
+.pal .chips i{flex:1;display:block}
+.pal[aria-pressed="true"]{border-color:var(--accent);background:var(--sunk)}
+
+.fields{display:grid;gap:8px}
+label.f{display:grid;gap:4px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+label.f input{font-family:var(--ui);font-size:13px;letter-spacing:0;text-transform:none;
+  color:var(--ink);background:var(--sunk);border:1px solid var(--line);border-radius:2px;padding:7px 9px}
+
+.sheetbox{background:var(--surface);border:1px solid var(--line);padding:14px;
+  box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.sheetbox svg{display:block;width:100%;height:auto;max-width:100%}
+.sheetbox.placing svg{cursor:crosshair}
+.chk{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:13px;color:var(--ink2)}
+.chk input{accent-color:var(--accent);width:15px;height:15px}
+.stagebar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--ink3)}
+.stagebar .ok{color:var(--accent)}
+.readout{width:100%;border-collapse:collapse;font-size:12.5px}
+.readout caption{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink3);padding-bottom:7px}
+.readout th,.readout td{border:1px solid var(--line2);padding:5px 9px;text-align:right;
+  font-variant-numeric:tabular-nums}
+.readout th:first-child,.readout td:first-child{text-align:left;font-weight:600}
+.readout thead th{background:var(--sunk);font-weight:500;color:var(--ink2);font-size:11.5px}
+details.tbl{background:var(--surface);border:1px solid var(--line);padding:12px 14px}
+details.tbl summary{cursor:pointer;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+details.tbl[open] summary{margin-bottom:12px}
+.tblscroll{overflow-x:auto}
+
+@media (max-width:920px){
+  .wrap{grid-template-columns:1fr}
+  .rail{border-left:0;border-top:1px solid var(--line);order:2;padding-bottom:64px}
+  .stage{order:1;padding-bottom:8px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media print{
+  .topbar,.rail,.stagebar,details.tbl{display:none!important}
+  body,.stage{background:#fff;padding:0}
+  .wrap{display:block}
+  .sheetbox{border:0;box-shadow:none;padding:0}
+}
+</style>
+<style id="pageStyle"></style>
+
+<div class="topbar">
+  <div class="brand">分析圖製圖台<small>Diagram Drafting Table</small></div>
+  <div class="spacer"></div>
+  <button id="copyPng">複製 PNG</button>
+  <button id="copySvg">複製 SVG 向量碼</button>
+  <button id="printBtn" class="btn-solid">列印／存成 PDF</button>
+</div>
+
+<div class="wrap">
+  <main class="stage">
+    <div class="stagebar">
+      <span id="shapeNote">—</span>
+      <span class="spacer"></span>
+      <span id="copyNote"></span>
+    </div>
+    <div class="sheetbox" id="sheetbox"><svg id="sheet" viewBox="0 0 1120 792" role="img" aria-label="分析圖預覽"></svg></div>
+    <details class="tbl">
+      <summary>數值對照表</summary>
+      <div class="tblscroll"><table class="readout" id="readout"></table></div>
+    </details>
+  </main>
+
+  <aside class="rail">
+    <section class="sec">
+      <h2>01 圖種 <b>Diagram</b></h2>
+      <div class="types" id="types"></div>
+      <p class="rec-note"><i></i><span id="recText">依你貼上的數值推薦圖種</span></p>
+    </section>
+
+    <section class="sec">
+      <h2>02 數值 <b>Data</b></h2>
+      <textarea id="data" spellcheck="false" aria-label="數值輸入"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="loadSample">載入此圖種範例</button>
+      </div>
+      <p class="hint">每行一筆：<code>標籤, 數值, 數值…</code>　逗號或 Tab 分隔。<br>
+      第一行以 <code>#</code> 開頭時當作欄位名。<br>
+      <b>基地疊圖</b>格式不同：<code>圖層, 名稱, 型, 座標, 值</code>。<br>
+      型＝<code>基地 點 流 區 風 光</code>。座標寫 <code>x y</code>（底圖百分比），
+      多點用 <code>;</code> 串成路徑或多邊形；<code>風</code>和<code>光</code>那一欄改填方位角 0–360。
+      在圖面點一下可直接新增一個點。</p>
+    </section>
+
+    <section class="sec" id="mapSec" hidden>
+      <h2>02b 地圖底圖 <b>Base Map</b></h2>
+      <div class="row">
+        <button id="pickImg">選擇底圖</button>
+        <button id="clearImg">移除</button>
+        <input type="file" id="fileImg" accept="image/*" hidden>
+      </div>
+      <p class="hint">或在頁面任意處按 <code>Ctrl+V</code> 貼上地圖截圖。<br>
+      底圖只留在這台裝置的瀏覽器裡，不會上傳。</p>
+      <div class="row" style="margin-top:10px">
+        <div class="seg" id="treatSeg">
+          <button data-t="plain" type="button">原色</button>
+          <button data-t="gray" type="button">灰階</button>
+          <button data-t="fade" type="button">淡化</button>
+        </div>
+      </div>
+      <div class="fields" style="margin-top:10px">
+        <label class="f">底圖實際寬度（公尺）<input id="mWidth" type="number" min="10" step="10"></label>
+        <label class="f">步行圈半徑（公尺，逗號分隔）<input id="mRings"></label>
+        <label class="f">指北旋轉（度）<input id="mNorth" type="number" step="5"></label>
+      </div>
+      <label class="chk"><input type="checkbox" id="mLink"> 由基地放射連線至各點</label>
+    </section>
+
+    <section class="sec">
+      <h2>03 版面 <b>Layout</b></h2>
+      <div class="seg" id="layoutSeg">
+        <button data-l="single" type="button">單張圖</button>
+        <button data-l="board" type="button">分析板</button>
+      </div>
+      <div id="boardOpts" hidden>
+        <div class="row" style="margin-top:9px">
+          <div class="seg" id="boardSeg">
+            <button data-b="2x2" type="button">2×2</button>
+            <button data-b="3x2" type="button">3×2</button>
+            <button data-b="3x3" type="button">3×3</button>
+            <button data-b="4x2" type="button">4×2</button>
+            <button data-b="1x3" type="button">1×3</button>
+          </div>
+        </div>
+        <div class="row" style="margin-top:7px">
+          <div class="seg" id="frameSeg">
+            <button data-f="rect" type="button">方框＋編號</button>
+            <button data-f="circle" type="button">圓框＋置中標題</button>
+          </div>
+        </div>
+        <label class="chk"><input type="checkbox" id="panelColor"> 每格換一個顏色</label>
+        <p class="hint">分析板一格一個圖層：基地疊圖依「圖層」欄分格，其餘圖種依數值欄分格。
+        欄名寫成 <code>中文|ENGLISH</code> 就會出雙語標題。</p>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2>04 風格 <b>Style</b></h2>
+      <div class="styles" id="styles"></div>
+      <div class="row" style="margin-top:8px">
+        <div class="seg" id="groundSeg">
+          <button data-g="paper" aria-pressed="true">白圖紙</button>
+          <button data-g="ink" aria-pressed="false">黑圖紙</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h2>05 色彩 <b>Palette</b></h2>
+      <div class="seg" id="logicSeg" style="margin-bottom:9px">
+        <button data-lg="cat" type="button">分類配色</button>
+        <button data-lg="tier" type="button">階層單色</button>
+      </div>
+      <div class="pals" id="pals"></div>
+      <p class="hint">階層單色＝底圖灰、資料只用一個色系的濃淡。建築分析圖多半是這一種；
+      分類配色是資訊圖表的邏輯。</p>
+    </section>
+
+    <section class="sec">
+      <h2>06 圖幅與輸出 <b>Sheet &amp; Export</b></h2>
+      <div class="seg" id="sizeSeg">
+        <button data-z="a4" type="button">A4</button>
+        <button data-z="a3" type="button">A3</button>
+        <button data-z="a2" type="button">A2</button>
+        <button data-z="sq" type="button">正方</button>
+        <button data-z="wide" type="button">16:9</button>
+      </div>
+      <div class="row" style="margin-top:7px">
+        <div class="seg" id="oriSeg">
+          <button data-o="land" type="button">橫式</button>
+          <button data-o="port" type="button">直式</button>
+        </div>
+        <div class="seg" id="dpiSeg">
+          <button data-d="96" type="button">96</button>
+          <button data-d="150" type="button">150</button>
+          <button data-d="300" type="button">300</button>
+          <button data-d="600" type="button">600</button>
+        </div>
+      </div>
+      <p class="hint" id="pxNote"></p>
+    </section>
+
+    <section class="sec">
+      <h2>07 圖框 <b>Titleblock</b></h2>
+      <div class="fields">
+        <label class="f">圖名<input id="tTitle" value="機能面積配比"></label>
+        <label class="f">專案<input id="tProject" value="市立美術館增建案"></label>
+        <label class="f">圖號<input id="tNo" value="A-DGM-01"></label>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- palettes (validated with the dataviz six-checks) ---------- */
+var PALETTES = [
+  { id:"draft", name:"製圖",
+    light:["#2580C1","#C1552C","#C69612","#19966E","#9750A7","#6F983D"],
+    dark: ["#4299DC","#AA3F11","#B38400","#007B4F","#A86AB6","#507B07"] },
+  { id:"earth", name:"大地",
+    light:["#BA4E25","#0097BC","#C99F00","#714CA6","#007E46","#C54864"],
+    dark: ["#D47452","#0076A0","#AD8700","#714CA6","#349D62","#AC4259"] },
+  { id:"ink", name:"墨階",
+    light:["#1B2A33","#3E5A67","#63818E","#8AA4AE","#AFC1C8","#D2DDE1"],
+    dark: ["#E2EAED","#B8C7CD","#8FA3AC","#68808B","#47606B","#2D454F"] }
+];
+
+/* ---------- styles ---------- */
+var STYLES = {
+  draft:  { name:"工程製圖", fill:.20, stroke:1.6, radius:0, grid:1,   labelFont:"mono", labelSize:12, gap:2 },
+  solid:  { name:"實色塊面", fill:1,   stroke:0,   radius:0, grid:0,   labelFont:"ui",   labelSize:13, gap:3 },
+  outline:{ name:"線構",     fill:0,   stroke:2.2, radius:0, grid:.5,  labelFont:"mono", labelSize:12, gap:3 },
+  soft:   { name:"簡報",     fill:.88, stroke:1,   radius:5, grid:.4,  labelFont:"ui",   labelSize:13.5, gap:4 }
+};
+
+/* ---------- diagram types ---------- */
+var TYPES = [
+  { id:"share",  name:"面積配比",   en:"Program Share",  shape:"單欄數值 · 3–8 筆" },
+  { id:"stack",  name:"樓層堆疊",   en:"Stacking",       shape:"多欄數值 · 每行一層" },
+  { id:"column", name:"高度對照",   en:"Height Compare", shape:"單／多欄數值" },
+  { id:"radar",  name:"條件雷達",   en:"Site Radar",     shape:"4–10 項 · 可多方案" },
+  { id:"rose",   name:"方位玫瑰",   en:"Wind / Sun Rose",shape:"方位標籤 · 單欄" },
+  { id:"bubble", name:"機能泡泡",   en:"Bubble Program", shape:"單欄面積值" },
+  { id:"matrix", name:"時段熱力",   en:"Usage Matrix",   shape:"多欄 · 5 欄以上" },
+  { id:"site",   name:"基地疊圖",   en:"Site Overlay",   shape:"底圖 + 圖層,名稱,型,座標,值" },
+  { id:"section",name:"垂直動線",   en:"Section Cores",  shape:"樓層|機能, 進深, 樓梯, 電梯" },
+  { id:"users",  name:"使用者分析", en:"User Profile",   shape:"族群, 佔比%, 年齡下, 年齡上, 起, 迄" }
+];
+
+var SAMPLES = {
+  share:"#用途, 面積m2\n展演大廳, 1240\n常設展區, 860\n教育工坊, 420\n典藏庫房, 340\n行政辦公, 260\n服務動線, 180",
+  stack:"#樓層, 展演, 教育, 行政, 服務\nRF, 0, 0, 0, 180\n4F, 320, 240, 120, 90\n3F, 380, 260, 80, 90\n2F, 520, 180, 60, 110\n1F, 640, 120, 40, 160\nB1, 0, 0, 0, 480",
+  column:"#量體, 高度m\n既有校舍, 14.5\n鄰棟住宅, 21.0\n提案 A, 28.0\n提案 B, 34.5\n法定限高, 36.0",
+  radar:"#項目, 現況, 提案\n日照, 62, 88\n通風, 54, 79\n噪音防護, 41, 72\n人行可及性, 70, 85\n綠覆率, 38, 76\n街廓視野, 66, 74",
+  rose:"#方位, 年均風頻%\nN, 6.2\nNNE, 9.8\nNE, 14.5\nENE, 11.2\nE, 7.4\nESE, 4.1\nSE, 3.6\nSSE, 4.4\nS, 5.2\nSSW, 6.8\nSW, 8.4\nWSW, 5.1\nW, 5.9\nWNW, 3.8\nNW, 4.3\nNNW, 5.3",
+  bubble:"#機能, 面積m2\n展演大廳, 1240\n常設展區, 860\n教育工坊, 420\n典藏庫房, 340\n行政辦公, 260\n餐飲, 180\n服務動線, 150",
+  matrix:"#空間, 08, 10, 12, 14, 16, 18, 20\n入口大廳, 12, 48, 66, 72, 58, 40, 18\n常設展區, 4, 52, 78, 86, 64, 30, 6\n教育工坊, 0, 20, 44, 62, 70, 55, 24\n餐飲空間, 6, 18, 88, 46, 36, 62, 40\n行政辦公, 30, 62, 55, 68, 60, 22, 4",
+  site:[
+    "#圖層, 名稱, 型, 座標 x y（; 分隔多點）／方位角, 值",
+    "基地, 基地範圍, 基地, 38 44; 62 44; 62 62; 38 62",
+    "日照|SUN PATH, 夏至正午, 光, 178",
+    "日照|SUN PATH, 冬至斜射, 光, 208",
+    "風向|WIND, 東北季風, 風, 45",
+    "風向|WIND, 夏季西南風, 風, 225",
+    "人流|FOOT TRAFFIC, 捷運來向, 流, 12 32; 28 42; 44 49, 4",
+    "人流|FOOT TRAFFIC, 商圈來向, 流, 90 22; 72 36; 58 47, 2.5",
+    "人流|FOOT TRAFFIC, 社區來向, 流, 50 96; 50 76; 50 64, 3",
+    "既有機能|EXISTING, 捷運站, 點, 22 30, 4200",
+    "既有機能|EXISTING, 傳統市場, 區, 64 18; 84 23; 80 38; 61 33",
+    "既有機能|EXISTING, 鄰里公園, 區, 6 60; 26 56; 31 76; 9 81",
+    "既有機能|EXISTING, 國小, 點, 76 74, 950",
+    "空間配置|ZONING, 展演, 區, 38 44; 51 44; 51 56; 38 56",
+    "空間配置|ZONING, 教育, 區, 51 44; 62 44; 62 56; 51 56",
+    "空間配置|ZONING, 開放廣場, 區, 38 56; 62 56; 62 62; 38 62",
+    "水平動線|CIRCULATION, 主軸, 流, 28 50; 45 50; 62 50, 5",
+    "水平動線|CIRCULATION, 次動線, 流, 50 40; 50 52; 50 64, 3"
+  ].join("\n"),
+  users:[
+    "#族群|GROUP, 佔比, 年齡下, 年齡上, 起, 迄",
+    "學生|STUDENTS, 28, 12, 18, 7, 18",
+    "上班族|OFFICE, 22, 25, 55, 8, 20",
+    "長者|SENIORS, 20, 60, 85, 6, 16",
+    "親子|FAMILIES, 18, 3, 40, 9, 17",
+    "觀光客|VISITORS, 12, 20, 65, 10, 21"
+  ].join("\n"),
+  section:"#樓層|機能, 進深, 樓梯, 電梯\nRF|屋頂花園, 4, 0, 1\n4F|住宿單元, 5, 1, 1\n3F|教育教室, 6, 1, 1\n2F|展演廳, 7, 1, 1\n1F|入口大廳, 8, 1, 1\nB1|停車與機電, 8, 0, 1"
+};
+
+/* ---------- state ---------- */
+var SIZES = {
+  a4:  { name:"A4",  mm:[297,210] },
+  a3:  { name:"A3",  mm:[420,297] },
+  a2:  { name:"A2",  mm:[594,420] },
+  sq:  { name:"正方", mm:[300,300] },
+  wide:{ name:"16:9", mm:[338,190] }
+};
+var BOARDS = { "2x2":[2,2], "3x2":[3,2], "3x3":[3,3], "4x2":[4,2], "1x3":[1,3] };
+
+var S = { type:"share", style:"draft", pal:"draft", ground:"paper", data:{},
+  layout:"single", board:"3x2", frame:"rect", panelColor:true,
+  logic:"cat", size:"a3", portrait:false, dpi:300,
+  map:{ img:"", imgAR:0, treat:"gray", widthM:600, rings:"150, 300, 500", north:0, link:false } };
+try{ var saved = JSON.parse(localStorage.getItem("dgm")||"{}");
+     ["type","style","pal","ground","layout","board","frame","logic","size","dpi"].forEach(function(k){ if(saved[k]) S[k]=saved[k]; });
+     ["portrait","panelColor"].forEach(function(k){ if(k in saved) S[k]=saved[k]; });
+     if(saved.data) S.data = saved.data;
+     if(saved.map) Object.keys(S.map).forEach(function(k){ if(k in saved.map) S.map[k]=saved.map[k]; }); }catch(e){}
+function save(){
+  try{ localStorage.setItem("dgm", JSON.stringify(S)); }
+  catch(e){ /* base image too big for the quota — keep everything else */
+    try{ var lite = JSON.parse(JSON.stringify(S)); lite.map.img = "";
+         localStorage.setItem("dgm", JSON.stringify(lite)); }catch(e2){} }
+}
+
+var $ = function(id){ return document.getElementById(id); };
+var ta = $("data"), sheetEl = $("sheet");
+
+/* ---------- parsing ---------- */
+function parse(text){
+  var lines = String(text||"").split("\n").map(function(s){return s.trim();})
+    .filter(function(s){ return s && s.slice(0,2) !== "//"; });
+  var cells = lines.map(function(l){
+    return l.replace(/^#/,"").split(/[,\t，]/).map(function(s){return s.trim();});
+  });
+  var cols = null;
+  if(cells.length && (lines[0].charAt(0) === "#" ||
+     (cells[0].length > 1 && cells[0].slice(1).every(function(v){ return v !== "" && isNaN(parseFloat(v)); })))){
+    cols = cells.shift().slice(1);
+  }
+  var rows = cells.map(function(c){
+    return { label: c[0] || "—", values: c.slice(1).map(function(v){ var n = parseFloat(v); return isFinite(n) ? n : 0; }) };
+  }).filter(function(r){ return r.values.length; });
+  var n = rows.reduce(function(m,r){ return Math.max(m, r.values.length); }, 1);
+  rows.forEach(function(r){ while(r.values.length < n) r.values.push(0); });
+  if(!cols || !cols.length) cols = [];
+  while(cols.length < n) cols.push(n === 1 ? "數值" : "項目 " + (cols.length + 1));
+  cols = cols.slice(0, n);
+  return { cols: cols, rows: rows };
+}
+
+/* ---------- recommendation ---------- */
+var DIR = /^(nne|ene|ese|sse|ssw|wsw|wnw|nnw|ne|nw|se|sw|n|s|e|w|[東西南北])/i;
+var FLOOR = /(^b?\d+\s*f$|^\d+\s*樓|^b\d|^rf$|^gf$|地下|屋突)/i;
+function recommend(d){
+  var out = {}, n = d.rows.length, c = d.cols.length;
+  if(!n) return out;
+  var labs = d.rows.map(function(r){ return r.label; });
+  var vals = d.rows.reduce(function(a,r){ return a.concat(r.values); }, []);
+  var max = Math.max.apply(null, vals);
+  var hit = function(re){ return labs.filter(function(l){ return re.test(l); }).length; };
+  if(c === 3 && /^x$/i.test(d.cols[1]) && /^y$/i.test(d.cols[2])) return { site:1 };
+  var cn = d.cols.join(" ");
+  if(/樓梯|電梯|core|stair|lift/i.test(cn)) return { section:1 };
+  if(c >= 5 && /佔比|年齡|share|age/i.test(cn)) return { users:1 };
+  if(hit(DIR) >= n * 0.7 && n >= 6) out.rose = 1;
+  if(hit(FLOOR) >= n * 0.6) out.stack = 1;
+  if(c >= 5) out.matrix = 1;
+  if(c >= 2){ out.stack = 1; if(max <= 100 && n >= 4 && n <= 10) out.radar = 1; }
+  if(c === 1){
+    if(n <= 8) out.share = 1;
+    out.column = 1; out.bubble = 1;
+    if(max <= 100 && n >= 4 && n <= 10) out.radar = 1;
+  }
+  return out;
+}
+
+/* ---------- drawing helpers ---------- */
+var W = 1120, H = 792, M = 40;
+var F = { x: M + 30, y: 0, w: W - 2*M - 60, h: 0 };
+var IMG = null;    // rect the base map was last drawn into — click-to-place reads it
+var TXT_K = 1;     // >1 inside a board panel, so captions stay readable once scaled down
+var PANEL = false; // true while drawing inside a panel (suppresses sheet-level furniture)
+
+function sheetMM(){
+  var z = SIZES[S.size] || SIZES.a3;
+  return S.portrait ? [z.mm[1], z.mm[0]] : z.mm.slice();
+}
+function outPx(){
+  var mm = sheetMM(), dpi = Number(S.dpi) || 300;
+  var px = [Math.round(mm[0]/25.4*dpi), Math.round(mm[1]/25.4*dpi)];
+  var cap = 10000, big = Math.max(px[0], px[1]);
+  if(big > cap){ var f = cap/big; px = [Math.round(px[0]*f), Math.round(px[1]*f)]; }
+  return px;
+}
+function applySize(){
+  var mm = sheetMM(), k = 1120 / Math.max(mm[0], mm[1]);
+  W = Math.round(mm[0]*k); H = Math.round(mm[1]*k);
+  F.x = M + 30; F.w = W - 2*M - 60;
+  sheetEl.setAttribute("viewBox", "0 0 " + W + " " + H);
+  var ps = document.getElementById("pageStyle");
+  ps.textContent = "@page{size:" + mm[0] + "mm " + mm[1] + "mm;margin:0}";
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g, function(ch){
+  return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[ch]; }); }
+function fmt(v){
+  var a = Math.abs(v);
+  var s = a >= 1000 ? v.toFixed(0) : a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(a < 1 ? 2 : 1);
+  return s.replace(/\.0+$/, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+function hex2rgb(h){ h = h.replace("#",""); return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)]; }
+function mix(a, b, t){
+  var A = hex2rgb(a), B = hex2rgb(b);
+  return "#" + [0,1,2].map(function(i){
+    return Math.round(Math.sqrt((1-t)*A[i]*A[i] + t*B[i]*B[i])).toString(16).padStart(2,"0");
+  }).join("");
+}
+function lum(h){ var c = hex2rgb(h).map(function(v){ v/=255; return v<=.03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4); });
+  return .2126*c[0] + .7152*c[1] + .0722*c[2]; }
+function onColor(bg, ink, paper){ return lum(bg) > 0.42 ? ink : paper; }
+
+function txt(x, y, s, o){
+  o = o || {};
+  return '<text x="' + x + '" y="' + y + '" fill="' + (o.fill || "currentColor") + '"' +
+    ' font-family="' + (o.mono ? "IBM Plex Mono, Noto Sans TC, monospace" : "Archivo, Noto Sans TC, sans-serif") + '"' +
+    ' font-size="' + ((o.size || 13) * (o.raw ? 1 : TXT_K)).toFixed(2) + '" font-weight="' + (o.weight || 400) + '"' +
+    (o.anchor ? ' text-anchor="' + o.anchor + '"' : "") +
+    (o.ls ? ' letter-spacing="' + o.ls + '"' : "") +
+    (o.baseline ? ' dominant-baseline="' + o.baseline + '"' : "") +
+    (o.transform ? ' transform="' + o.transform + '"' : "") +
+    (o.halo ? ' paint-order="stroke" stroke="' + o.halo + '" stroke-width="3.5" stroke-linejoin="round"' : "") +
+    '>' + esc(s) + '</text>';
+}
+function markFill(color, st, C){
+  if(st.fill === 0) return 'fill="none" stroke="' + color + '" stroke-width="' + st.stroke + '"';
+  var f = st.fill === 1 ? 'fill="' + color + '"' : 'fill="' + mix(C.sheet, color, st.fill) + '"';
+  return f + (st.stroke ? ' stroke="' + color + '" stroke-width="' + st.stroke + '"' : "");
+}
+function legend(cols, C, st, x, y, maxW){
+  if(cols.length < 2) return "";
+  var out = "", cx = x, gap = 22;
+  for(var i = 0; i < cols.length; i++){
+    var w = 14 + 6 + String(cols[i]).length * 8.4;
+    if(cx + w > x + maxW){ break; }
+    out += '<rect x="' + cx + '" y="' + (y - 9) + '" width="13" height="13" rx="' + Math.min(2, st.radius) + '" ' +
+      markFill(C.pal[i % C.pal.length], st, C) + '/>';
+    out += txt(cx + 20, y + 2, cols[i], { fill:C.ink2, size:12 });
+    cx += w + gap;
+  }
+  return out;
+}
+
+/* ---------- path vocabulary (flows, zones, wind, sun) ---------- */
+function smoothPath(p){
+  if(p.length < 2) return "";
+  if(p.length === 2) return "M" + p[0][0] + " " + p[0][1] + " L" + p[1][0] + " " + p[1][1];
+  var d = "M" + p[0][0] + " " + p[0][1];
+  for(var i = 1; i < p.length - 1; i++)
+    d += " Q" + p[i][0] + " " + p[i][1] + " " + ((p[i][0] + p[i+1][0])/2) + " " + ((p[i][1] + p[i+1][1])/2);
+  return d + " L" + p[p.length-1][0] + " " + p[p.length-1][1];
+}
+// arrowhead drawn as a real path, not a <marker> — survives the trip into Illustrator
+function head(from, to, col, w){
+  var a = Math.atan2(to[1] - from[1], to[0] - from[0]), L = 7 + w*2.4, s = 0.42;
+  return '<path d="M' + to[0] + ' ' + to[1] +
+    ' L' + (to[0] - Math.cos(a - s)*L) + ' ' + (to[1] - Math.sin(a - s)*L) +
+    ' L' + (to[0] - Math.cos(a + s)*L) + ' ' + (to[1] - Math.sin(a + s)*L) + ' Z" fill="' + col + '"/>';
+}
+function centroid(p){
+  return [p.reduce(function(a,q){ return a + q[0]; }, 0)/p.length,
+          p.reduce(function(a,q){ return a + q[1]; }, 0)/p.length];
+}
+
+/* ---------- chart renderers ---------- */
+var DRAW = {};
+
+DRAW.share = function(d, C, st){
+  var vals = d.rows.map(function(r){ return r.values[0]; });
+  var total = vals.reduce(function(a,b){ return a + b; }, 0) || 1;
+  var bandY = F.y + 24, bandH = 132, x = F.x, out = "";
+  d.rows.forEach(function(r, i){
+    var w = Math.max(0, F.w * vals[i] / total - st.gap);
+    var col = C.pal[i % C.pal.length];
+    out += '<g><title>' + esc(r.label + "：" + fmt(vals[i]) + "（" + (vals[i]/total*100).toFixed(1) + "%）") + '</title>' +
+      '<rect x="' + x + '" y="' + bandY + '" width="' + w + '" height="' + bandH + '" rx="' + st.radius + '" ' +
+      markFill(col, st, C) + '/>';
+    if(w > 62){
+      var ic = st.fill >= .85 ? onColor(col, C.sheet, C.sheetInk) : C.ink;
+      out += txt(x + 12, bandY + 26, (vals[i]/total*100).toFixed(1) + "%", { fill:ic, size:15, weight:700, mono:true });
+    }
+    out += '</g>';
+    x += F.w * vals[i] / total;
+  });
+  // legend list below the band — three columns, always shows label + value + share
+  var ly = bandY + bandH + 62, colW = F.w / 3;
+  d.rows.forEach(function(r, i){
+    var cx = F.x + (i % 3) * colW, cy = ly + Math.floor(i / 3) * 46;
+    out += '<rect x="' + cx + '" y="' + (cy - 11) + '" width="14" height="14" rx="' + Math.min(2, st.radius) + '" ' +
+      markFill(C.pal[i % C.pal.length], st, C) + '/>';
+    out += txt(cx + 22, cy + 1, r.label, { fill:C.ink, size:14, weight:600 });
+    out += txt(cx + 22, cy + 21, fmt(vals[i]) + "　" + (vals[i]/total*100).toFixed(1) + "%",
+      { fill:C.ink2, size:12.5, mono:true });
+  });
+  out += txt(F.x + F.w, F.y + 8, "總計 " + fmt(total) + "　" + d.cols[0], { fill:C.ink2, size:12, mono:true, anchor:"end" });
+  return out;
+};
+
+DRAW.stack = function(d, C, st){
+  var totals = d.rows.map(function(r){ return r.values.reduce(function(a,b){ return a + b; }, 0); });
+  var max = Math.max.apply(null, totals) || 1;
+  var top = F.y + 34, labW = 92, valW = 86;
+  var plotX = F.x + labW, plotW = F.w - labW - valW;
+  var n = d.rows.length, slot = (F.h - 46) / n, bh = Math.min(48, slot - 10);
+  var out = legend(d.cols, C, st, F.x, F.y + 6, F.w);
+  if(st.grid) for(var g = 0; g <= 4; g++){
+    var gx = plotX + plotW * g / 4;
+    out += '<line x1="' + gx + '" y1="' + top + '" x2="' + gx + '" y2="' + (top + n * slot - (slot - bh)) +
+      '" stroke="' + C.line + '" stroke-width="1" stroke-dasharray="2 4"/>';
+    out += txt(gx, top - 10, fmt(max * g / 4), { fill:C.ink3, size:10.5, mono:true, anchor:"middle" });
+  }
+  d.rows.forEach(function(r, i){
+    var y = top + i * slot, x = plotX;
+    out += txt(plotX - 14, y + bh/2 + 5, r.label, { fill:C.ink, size:13.5, weight:600, anchor:"end" });
+    r.values.forEach(function(v, j){
+      var w = plotW * v / max;
+      if(w <= 0.5) { x += w; return; }
+      out += '<g><title>' + esc(r.label + " · " + d.cols[j] + "：" + fmt(v)) + '</title>' +
+        '<rect x="' + x + '" y="' + y + '" width="' + Math.max(0, w - st.gap) + '" height="' + bh +
+        '" rx="' + st.radius + '" ' + markFill(C.pal[j % C.pal.length], st, C) + '/></g>';
+      x += w;
+    });
+    out += txt(plotX + plotW + 14, y + bh/2 + 5, fmt(totals[i]), { fill:C.ink2, size:12.5, mono:true });
+  });
+  out += txt(plotX + plotW + 14, top - 10, d.cols.length > 1 ? "小計" : d.cols[0], { fill:C.ink3, size:10.5, mono:true });
+  return out;
+};
+
+DRAW.column = function(d, C, st){
+  var vals = d.rows.reduce(function(a,r){ return a.concat(r.values); }, []);
+  var max = Math.max.apply(null, vals) || 1;
+  var base = F.y + F.h - 54, top = F.y + 52, plotH = base - top;
+  var n = d.rows.length, m = d.cols.length;
+  var slot = F.w / n, gw = Math.min(150, slot * 0.68), bw = (gw - st.gap * (m - 1)) / m;
+  var out = legend(d.cols, C, st, F.x, F.y + 6, F.w);
+  if(st.grid) for(var g = 0; g <= 4; g++){
+    var gy = base - plotH * g / 4;
+    out += '<line x1="' + F.x + '" y1="' + gy + '" x2="' + (F.x + F.w) + '" y2="' + gy +
+      '" stroke="' + C.line + '" stroke-width="1"' + (g ? ' stroke-dasharray="2 4"' : "") + '/>';
+    out += txt(F.x - 10, gy + 4, fmt(max * g / 4), { fill:C.ink3, size:10.5, mono:true, anchor:"end" });
+  }
+  out += '<line x1="' + F.x + '" y1="' + base + '" x2="' + (F.x + F.w) + '" y2="' + base +
+    '" stroke="' + C.sheetInk + '" stroke-width="1.5"/>';
+  d.rows.forEach(function(r, i){
+    var cx = F.x + slot * (i + 0.5);
+    r.values.forEach(function(v, j){
+      var h = Math.max(0, plotH * v / max), x = cx - gw/2 + j * (bw + st.gap);
+      out += '<g><title>' + esc(r.label + (m > 1 ? " · " + d.cols[j] : "") + "：" + fmt(v)) + '</title>' +
+        '<path d="' + roundTop(x, base - h, bw, h, st.radius) + '" ' + markFill(C.pal[j % C.pal.length], st, C) + '/></g>';
+      out += txt(x + bw/2, base - h - 12, fmt(v), { fill:C.ink, size:12.5, weight:600, mono:true, anchor:"middle" });
+    });
+    out += txt(cx, base + 26, r.label, { fill:C.ink, size:13, weight:500, anchor:"middle" });
+  });
+  out += txt(F.x, F.y + F.h - 8, "單位：" + d.cols[0], { fill:C.ink3, size:11, mono:true });
+  return out;
+};
+function roundTop(x, y, w, h, r){
+  r = Math.min(r, w/2, h);
+  return "M" + x + " " + (y + h) + " L" + x + " " + (y + r) + " Q" + x + " " + y + " " + (x + r) + " " + y +
+    " L" + (x + w - r) + " " + y + " Q" + (x + w) + " " + y + " " + (x + w) + " " + (y + r) +
+    " L" + (x + w) + " " + (y + h) + " Z";
+}
+
+DRAW.radar = function(d, C, st){
+  var n = d.rows.length, m = d.cols.length;
+  if(n < 3) return txt(F.x, F.y + 60, "雷達圖需要至少 3 個項目", { fill:C.ink2, size:14 });
+  var vals = d.rows.reduce(function(a,r){ return a.concat(r.values); }, []);
+  var max = Math.max.apply(null, vals);
+  max = max <= 100 ? 100 : Math.ceil(max / 10) * 10;
+  var cx = F.x + F.w/2, cy = F.y + F.h/2 + 10, R = Math.min(F.w/2 - 150, F.h/2 - 56);
+  var pt = function(i, t){ var a = -Math.PI/2 + i * 2*Math.PI/n; return [cx + Math.cos(a)*R*t, cy + Math.sin(a)*R*t]; };
+  var out = legend(d.cols, C, st, F.x, F.y + 6, F.w);
+  [0.25, 0.5, 0.75, 1].forEach(function(t){
+    var p = []; for(var i = 0; i < n; i++) p.push(pt(i, t).join(","));
+    out += '<polygon points="' + p.join(" ") + '" fill="none" stroke="' + C.line +
+      '" stroke-width="1"' + (t < 1 ? ' stroke-dasharray="2 4"' : "") + '/>';
+  });
+  for(var i = 0; i < n; i++){
+    var e = pt(i, 1);
+    out += '<line x1="' + cx + '" y1="' + cy + '" x2="' + e[0] + '" y2="' + e[1] + '" stroke="' + C.line + '" stroke-width="1"/>';
+    var l = pt(i, 1.13);
+    out += txt(l[0], l[1] + 5, d.rows[i].label, { fill:C.ink, size:13, weight:600,
+      anchor: Math.abs(l[0] - cx) < 12 ? "middle" : (l[0] > cx ? "start" : "end") });
+  }
+  out += txt(cx + 6, cy - R - 6, fmt(max), { fill:C.ink3, size:10.5, mono:true });
+  for(var j = 0; j < m; j++){
+    var col = C.pal[j % C.pal.length], pts = [];
+    for(var k = 0; k < n; k++) pts.push(pt(k, Math.max(0, d.rows[k].values[j]) / max).join(","));
+    out += '<polygon points="' + pts.join(" ") + '" fill="' + (st.fill === 0 ? "none" : mix(C.sheet, col, Math.min(.42, st.fill * .45))) +
+      '" stroke="' + col + '" stroke-width="' + Math.max(2, st.stroke) + '" stroke-linejoin="round"/>';
+    for(var k2 = 0; k2 < n; k2++){
+      var p = pt(k2, Math.max(0, d.rows[k2].values[j]) / max);
+      out += '<g><title>' + esc(d.rows[k2].label + " · " + d.cols[j] + "：" + fmt(d.rows[k2].values[j])) + '</title>' +
+        '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4.5" fill="' + col + '" stroke="' + C.sheet + '" stroke-width="2"/></g>';
+    }
+  }
+  return out;
+};
+
+DRAW.rose = function(d, C, st){
+  var n = d.rows.length;
+  var vals = d.rows.map(function(r){ return r.values[0]; });
+  var max = Math.max.apply(null, vals) || 1;
+  var cx = F.x + F.w/2, cy = F.y + F.h/2 + 8, R = Math.min(F.w/2 - 130, F.h/2 - 48);
+  var out = "", step = 2*Math.PI/n, gap = Math.min(step * 0.16, 0.06);
+  [0.33, 0.66, 1].forEach(function(t){
+    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R*t + '" fill="none" stroke="' + C.line +
+      '" stroke-width="1"' + (t < 1 ? ' stroke-dasharray="2 4"' : "") + '/>';
+    out += txt(cx + 5, cy - R*t - 5, fmt(max*t), { fill:C.ink3, size:10, mono:true });
+  });
+  d.rows.forEach(function(r, i){
+    var a0 = -Math.PI/2 + i*step - step/2 + gap, a1 = a0 + step - gap*2;
+    var rr = R * Math.max(0, r.values[0]) / max;
+    var x0 = cx + Math.cos(a0)*rr, y0 = cy + Math.sin(a0)*rr;
+    var x1 = cx + Math.cos(a1)*rr, y1 = cy + Math.sin(a1)*rr;
+    var col = C.pal[i % C.pal.length];
+    out += '<g><title>' + esc(r.label + "：" + fmt(r.values[0])) + '</title>' +
+      '<path d="M' + cx + ' ' + cy + ' L' + x0 + ' ' + y0 + ' A' + rr + ' ' + rr + ' 0 0 1 ' + x1 + ' ' + y1 + ' Z" ' +
+      markFill(col, st, C) + '/></g>';
+    var am = (a0 + a1)/2, lx = cx + Math.cos(am)*(R + 26), ly = cy + Math.sin(am)*(R + 26);
+    out += txt(lx, ly + 4, r.label, { fill:C.ink, size:12, weight:600, mono:true,
+      anchor: Math.abs(lx - cx) < 14 ? "middle" : (lx > cx ? "start" : "end") });
+  });
+  out += txt(F.x, F.y + 6, d.cols[0] + " · 最大值 " + fmt(max), { fill:C.ink2, size:12, mono:true });
+  return out;
+};
+
+DRAW.bubble = function(d, C, st){
+  var vals = d.rows.map(function(r){ return Math.max(0, r.values[0]); });
+  var max = Math.max.apply(null, vals) || 1;
+  var items = d.rows.map(function(r, i){
+    return { label:r.label, v:vals[i], i:i, r: 26 + 104 * Math.sqrt(vals[i] / max) };
+  }).sort(function(a,b){ return b.r - a.r; });
+  var placed = [];
+  items.forEach(function(it, i){
+    if(i === 0){ placed.push({ it:it, x:0, y:0 }); return; }
+    var found = null;
+    for(var ring = 1; ring < 300 && !found; ring++){
+      var rad = ring * 5, steps = Math.max(10, ring * 7);
+      for(var k = 0; k < steps; k++){
+        var a = (k / steps) * Math.PI*2 + i * 0.9;
+        var x = Math.cos(a) * rad * 1.22, y = Math.sin(a) * rad;
+        var ok = placed.every(function(p){
+          return Math.hypot(p.x - x, p.y - y) >= p.it.r + it.r + st.gap + 5; });
+        if(ok){ found = { x:x, y:y }; break; }
+      }
+    }
+    placed.push({ it:it, x:(found||{x:0}).x, y:(found||{y:0}).y });
+  });
+  var bb = placed.reduce(function(b,p){
+    return [Math.min(b[0], p.x - p.it.r), Math.min(b[1], p.y - p.it.r),
+            Math.max(b[2], p.x + p.it.r), Math.max(b[3], p.y + p.it.r)]; },
+    [1e9, 1e9, -1e9, -1e9]);
+  var bw = bb[2] - bb[0], bh = bb[3] - bb[1];
+  var k = Math.min((F.w - 40) / bw, (F.h - 66) / bh, 1.35);
+  var ox = F.x + F.w/2 - (bb[0] + bw/2) * k, oy = F.y + 34 + (F.h - 44)/2 - (bb[1] + bh/2) * k;
+  var out = "";
+  placed.forEach(function(p){
+    var col = C.pal[p.it.i % C.pal.length], r = p.it.r * k;
+    var cx = ox + p.x * k, cy = oy + p.y * k;
+    out += '<g><title>' + esc(p.it.label + "：" + fmt(p.it.v)) + '</title>' +
+      '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" ' + markFill(col, st, C) + '/>';
+    if(r > 36){
+      var ic = st.fill >= .85 ? onColor(col, C.sheet, C.sheetInk) : C.ink;
+      out += txt(cx, cy - 2, p.it.label, { fill:ic, size:Math.min(15, r/3.4), weight:700, anchor:"middle" });
+      out += txt(cx, cy + Math.min(18, r/2.8), fmt(p.it.v), { fill:ic, size:Math.min(13, r/4.4), mono:true, anchor:"middle" });
+    } else {
+      out += txt(cx, cy + r + 15, p.it.label + " " + fmt(p.it.v), { fill:C.ink2, size:11.5, mono:true, anchor:"middle" });
+    }
+    out += '</g>';
+  });
+  out += txt(F.x, F.y + 8, "圓面積 ∝ " + d.cols[0], { fill:C.ink2, size:12, mono:true });
+  return out;
+};
+
+DRAW.matrix = function(d, C, st){
+  var vals = d.rows.reduce(function(a,r){ return a.concat(r.values); }, []);
+  var max = Math.max.apply(null, vals) || 1, min = Math.min.apply(null, vals);
+  var base = C.pal[0], n = d.rows.length, m = d.cols.length;
+  var labW = 118, top = F.y + 54;
+  var cw = (F.w - labW - 84) / m, chh = Math.min(62, (F.h - 96) / n);
+  var out = "";
+  d.cols.forEach(function(c, j){
+    out += txt(F.x + labW + cw*(j + 0.5), top - 14, c, { fill:C.ink2, size:12, mono:true, anchor:"middle" });
+  });
+  d.rows.forEach(function(r, i){
+    var y = top + i * chh;
+    out += txt(F.x + labW - 14, y + chh/2 + 5, r.label, { fill:C.ink, size:13, weight:600, anchor:"end" });
+    r.values.forEach(function(v, j){
+      var t = max === min ? 1 : (v - min) / (max - min);
+      var col = mix(C.sheet, base, 0.08 + 0.92 * t);
+      out += '<g><title>' + esc(r.label + " · " + d.cols[j] + "：" + fmt(v)) + '</title>' +
+        '<rect x="' + (F.x + labW + cw*j + st.gap/2) + '" y="' + (y + st.gap/2) + '" width="' + (cw - st.gap) +
+        '" height="' + (chh - st.gap) + '" rx="' + st.radius + '" fill="' + col + '"' +
+        (st.stroke ? ' stroke="' + C.line + '" stroke-width="1"' : "") + '/>';
+      if(cw > 40 && chh > 26) out += txt(F.x + labW + cw*(j + 0.5), y + chh/2 + 4, fmt(v),
+        { fill: t > 0.55 ? onColor(base, C.sheet, C.sheetInk) : C.ink2, size:11.5, mono:true, anchor:"middle" });
+      out += '</g>';
+    });
+  });
+  // ramp key
+  var kx = F.x + F.w - 66, ky = top, kh = Math.min(200, n * chh);
+  for(var s = 0; s < 24; s++){
+    out += '<rect x="' + kx + '" y="' + (ky + kh * s/24) + '" width="16" height="' + (kh/24 + .6) + '" fill="' +
+      mix(C.sheet, base, 0.08 + 0.92 * (1 - s/23)) + '"/>';
+  }
+  out += txt(kx + 22, ky + 10, fmt(max), { fill:C.ink2, size:11, mono:true });
+  out += txt(kx + 22, ky + kh, fmt(min), { fill:C.ink2, size:11, mono:true });
+  return out;
+};
+
+/* ---------- site overlay: a layer vocabulary, not a chart ----------
+   每行： 圖層, 名稱, 型, 座標, 值
+   型 = 基地 / 點 / 流 / 區 / 風 / 光
+   座標 = "x y" 多點用 ; 分隔（風與光這一欄填方位角 0–360）        */
+var UID = 0;
+
+function parseSite(text){
+  var out = [];
+  String(text || "").split("\n").forEach(function(l){
+    l = l.trim();
+    if(!l || l.charAt(0) === "#" || l.slice(0,2) === "//") return;
+    var c = l.split(/[,，]/).map(function(s){ return s.trim(); });
+    if(c.length < 3) return;
+    var geo = c[3] || "";
+    var pts = geo.split(/[;；]/).map(function(q){
+      var xy = q.trim().split(/\s+/).map(parseFloat);
+      return (xy.length >= 2 && isFinite(xy[0]) && isFinite(xy[1])) ? [xy[0], xy[1]] : null;
+    }).filter(Boolean);
+    out.push({ layer:c[0] || "—", name:c[1] || "", kind:c[2] || "點",
+               pts:pts, bearing:parseFloat(geo), v:parseFloat(c[4]) || 0 });
+  });
+  return out;
+}
+
+DRAW.site = function(d, C, st){
+  var m = S.map, L = d.site || [];
+  var ar = m.imgAR || 4/3;
+  var w = F.w, h = w / ar;
+  if(h > F.h){ h = F.h; w = h * ar; }
+  var x = F.x + (F.w - w)/2, y = F.y + (F.h - h)/2;
+  if(!PANEL) IMG = { x:x, y:y, w:w, h:h };
+  var P = function(p){ return [ x + w * Math.min(100, Math.max(0, p[0])) / 100,
+                                y + h * Math.min(100, Math.max(0, p[1])) / 100 ]; };
+  var bearingVec = function(deg){ var r = deg * Math.PI/180; return [Math.sin(r), -Math.cos(r)]; };
+  var out = "";
+
+  if(m.img){
+    out += '<image href="' + m.img + '" x="' + x + '" y="' + y + '" width="' + w + '" height="' + h +
+      '" preserveAspectRatio="none"' +
+      (m.treat === "plain" ? "" : ' filter="url(#dgmGray)"') +
+      (m.treat === "fade" ? ' opacity="0.14"' : m.treat === "gray" ? ' opacity="0.55"' : "") + '/>';
+  } else {
+    out += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + mix(C.sheet, C.line, .26) + '"/>';
+    for(var g = 1; g < 12; g++){
+      out += '<line x1="' + (x + w*g/12) + '" y1="' + y + '" x2="' + (x + w*g/12) + '" y2="' + (y+h) +
+        '" stroke="' + C.line + '" stroke-width="1"/>';
+      if(g < 9) out += '<line x1="' + x + '" y1="' + (y + h*g/9) + '" x2="' + (x+w) + '" y2="' + (y + h*g/9) +
+        '" stroke="' + C.line + '" stroke-width="1"/>';
+    }
+    if(!PANEL) out += txt(x + w/2, y + h/2, "選一張底圖，或直接 Ctrl+V 貼上截圖", { fill:C.ink2, size:16, anchor:"middle" });
+  }
+
+  // one colour per layer — that is what makes a board of panels read as a set
+  var layers = [];
+  L.forEach(function(r){ if(r.kind !== "基地" && layers.indexOf(r.layer) < 0) layers.push(r.layer); });
+  var colOf = function(r){ return C.pal[Math.max(0, layers.indexOf(r.layer)) % C.pal.length]; };
+
+  var cid = "dgmC" + (++UID);
+  out += '<clipPath id="' + cid + '"><rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"/></clipPath>';
+  out += '<g clip-path="url(#' + cid + ')">';
+
+  var site = L.filter(function(r){ return r.kind === "基地" && r.pts.length; })[0];
+  var org = site ? P(site.pts[0]) : [x + w/2, y + h/2];
+  var pxPerM = w / (Number(m.widthM) || 600);
+
+  var radii = String(m.rings || "").split(/[,，]/).map(parseFloat).filter(function(n){ return isFinite(n) && n > 0; });
+  radii.forEach(function(rm){
+    var rr = rm * pxPerM;
+    // on a board the rings are the constant every panel shares — they must recede, not compete
+    out += '<circle cx="' + org[0] + '" cy="' + org[1] + '" r="' + rr + '" fill="none" stroke="' + C.ink +
+      '" stroke-width="' + (PANEL ? 0.8 : 1.1) + '" stroke-dasharray="6 5" opacity="' + (PANEL ? 0.16 : 0.5) + '"/>';
+    if(!PANEL)
+      out += txt(org[0], org[1] - rr - 6, rm + " m", { fill:C.ink2, size:10.5, mono:true, anchor:"middle", halo:C.sheet });
+  });
+
+  // zones sit under everything, then flows, weather, points, and the site mark on top
+  ["區","流","風","光","點"].forEach(function(kind){
+    L.filter(function(r){ return r.kind === kind; }).forEach(function(r){
+      var col = colOf(r);
+
+      if(kind === "區" && r.pts.length >= 3){
+        var pp = r.pts.map(P);
+        out += '<g><title>' + esc(r.layer + " · " + r.name) + '</title>' +
+          '<polygon points="' + pp.map(function(q){ return q[0].toFixed(1) + "," + q[1].toFixed(1); }).join(" ") + '" ' +
+          markFill(col, st, C) + ' stroke-linejoin="round"/></g>';
+        var ct = centroid(pp);
+        out += txt(ct[0], ct[1] + 4, r.name, { fill:C.ink, size:13, weight:600, anchor:"middle", halo:C.sheet });
+
+      } else if(kind === "流" && r.pts.length >= 2){
+        var pf = r.pts.map(P), wd = 2.5 + Math.min(15, Math.abs(r.v) * 2.2);
+        out += '<g><title>' + esc(r.layer + " · " + r.name + (r.v ? "：" + fmt(r.v) : "")) + '</title>' +
+          '<path d="' + smoothPath(pf) + '" fill="none" stroke="' + col + '" stroke-width="' + wd +
+          '" stroke-linecap="round" stroke-linejoin="round" opacity="0.88"/>' +
+          head(pf[pf.length-2], pf[pf.length-1], col, wd) + '</g>';
+        var mid = pf[Math.floor(pf.length/2)];
+        out += txt(mid[0] + 10, mid[1] - 8, r.name, { fill:C.ink, size:12, weight:600, halo:C.sheet });
+
+      } else if(kind === "風" && isFinite(r.bearing)){
+        var u = bearingVec(r.bearing + 180), pv = [-u[1], u[0]];
+        var R = Math.max(w, h) * 0.55, sp = Math.min(w, h) * 0.2;
+        [-1, 0, 1].forEach(function(k){
+          var o = k * sp;
+          var a0 = [org[0] - u[0]*R + pv[0]*o,            org[1] - u[1]*R + pv[1]*o];
+          var a1 = [org[0] - u[0]*R*0.3 + pv[0]*o*1.5,    org[1] - u[1]*R*0.3 + pv[1]*o*1.5];
+          var a2 = [org[0] + u[0]*R*0.55 + pv[0]*o*0.7,   org[1] + u[1]*R*0.55 + pv[1]*o*0.7];
+          var pw2 = [a0, a1, a2];
+          out += '<path d="' + smoothPath(pw2) + '" fill="none" stroke="' + col + '" stroke-width="' +
+            (k ? 2.2 : 3.4) + '" stroke-linecap="round" opacity="' + (k ? 0.6 : 0.9) + '"/>' +
+            head(a1, a2, col, k ? 2.2 : 3.4);
+        });
+        var lp = [org[0] - u[0]*R*0.8, org[1] - u[1]*R*0.8];
+        out += txt(lp[0], lp[1] - 12, r.name + "　" + Math.round(r.bearing) + "°",
+          { fill:C.ink, size:12, weight:600, mono:true, anchor:"middle", halo:C.sheet });
+
+      } else if(kind === "光" && isFinite(r.bearing)){
+        var R2 = Math.min(w, h) * 0.40, arc = [];
+        for(var a = -85; a <= 85; a += 5){
+          var v2 = bearingVec(r.bearing + a);
+          arc.push([org[0] + v2[0]*R2, org[1] + v2[1]*R2]);
+        }
+        out += '<path d="' + smoothPath(arc) + '" fill="none" stroke="' + col +
+          '" stroke-width="1.4" stroke-dasharray="5 4" opacity="0.75"/>';
+        var sv = bearingVec(r.bearing), sc = [org[0] + sv[0]*R2, org[1] + sv[1]*R2];
+        out += '<circle cx="' + sc[0] + '" cy="' + sc[1] + '" r="' + (Math.min(w,h) * 0.055) + '" fill="' + col + '" opacity="0.9"/>';
+        var pv2 = [-sv[1], sv[0]];
+        [-1, 0, 1].forEach(function(k){
+          var o2 = k * Math.min(w, h) * 0.09;
+          var b0 = [sc[0] - sv[0]*Math.min(w,h)*0.10 + pv2[0]*o2, sc[1] - sv[1]*Math.min(w,h)*0.10 + pv2[1]*o2];
+          var b1 = [org[0] + sv[0]*Math.min(w,h)*0.06 + pv2[0]*o2, org[1] + sv[1]*Math.min(w,h)*0.06 + pv2[1]*o2];
+          out += '<line x1="' + b0[0] + '" y1="' + b0[1] + '" x2="' + b1[0] + '" y2="' + b1[1] +
+            '" stroke="' + col + '" stroke-width="2" opacity="0.7"/>' + head(b0, b1, col, 2);
+        });
+        out += txt(sc[0], sc[1] - Math.min(w,h)*0.085, r.name + "　" + Math.round(r.bearing) + "°",
+          { fill:C.ink, size:12, weight:600, mono:true, anchor:"middle", halo:C.sheet });
+
+      } else if(kind === "點" && r.pts.length){
+        var pt0 = P(r.pts[0]);
+        var vs = L.filter(function(q){ return q.kind === "點"; }).map(function(q){ return Math.abs(q.v); });
+        var mx = Math.max.apply(null, vs.concat([1]));
+        var rr2 = 7 + 22 * Math.sqrt(Math.abs(r.v) / mx);
+        out += '<g><title>' + esc(r.layer + " · " + r.name + (r.v ? "：" + fmt(r.v) : "")) + '</title>' +
+          '<circle cx="' + pt0[0] + '" cy="' + pt0[1] + '" r="' + rr2 + '" ' + markFill(col, st, C) +
+          (st.fill === 0 ? "" : ' stroke="' + C.sheet + '" stroke-width="1.8"') + '/></g>';
+        out += txt(pt0[0] + rr2 + 7, pt0[1] + 4, r.name + (r.v ? "  " + fmt(r.v) : ""),
+          { fill:C.ink, size:12.5, weight:600, halo:C.sheet });
+      }
+    });
+  });
+
+  if(site){
+    out += '<line x1="' + (org[0]-16) + '" y1="' + org[1] + '" x2="' + (org[0]+16) + '" y2="' + org[1] +
+        '" stroke="' + C.ink + '" stroke-width="1.5"/>' +
+      '<line x1="' + org[0] + '" y1="' + (org[1]-16) + '" x2="' + org[0] + '" y2="' + (org[1]+16) +
+        '" stroke="' + C.ink + '" stroke-width="1.5"/>' +
+      '<rect x="' + (org[0]-8) + '" y="' + (org[1]-8) + '" width="16" height="16" fill="none" stroke="' + C.ink + '" stroke-width="2"/>';
+    if(site.pts.length >= 3)
+      out += '<polygon points="' + site.pts.map(P).map(function(q){ return q[0].toFixed(1) + "," + q[1].toFixed(1); }).join(" ") +
+        '" fill="none" stroke="' + C.ink + '" stroke-width="2" stroke-dasharray="7 4"/>';
+    out += txt(org[0] + 22, org[1] - 11, site.name || "基地", { fill:C.ink, size:13.5, weight:700, halo:C.sheet });
+  }
+  out += '</g>';
+
+  out += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h +
+    '" fill="none" stroke="' + C.ink + '" stroke-width="1.3"/>';
+
+  var na = Number(m.north) || 0, nx = x + w - 40, ny = y + 40;
+  out += '<g transform="rotate(' + na + ' ' + nx + ' ' + ny + ')">' +
+    '<circle cx="' + nx + '" cy="' + ny + '" r="20" fill="' + C.sheet + '" stroke="' + C.ink + '" stroke-width="1.1" opacity="0.92"/>' +
+    '<path d="M' + nx + ' ' + (ny-14) + ' L' + (nx+7) + ' ' + (ny+13) + ' L' + nx + ' ' + (ny+6) +
+      ' L' + (nx-7) + ' ' + (ny+13) + ' Z" fill="' + C.ink + '"/>' +
+    txt(nx, ny - 23, "N", { fill:C.ink, size:11, weight:700, mono:true, anchor:"middle" }) + '</g>';
+
+  if(!PANEL){
+    var nice = [10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000];
+    var target = (Number(m.widthM) || 600) / 5;
+    var bm = nice.reduce(function(a, b){ return Math.abs(b - target) < Math.abs(a - target) ? b : a; });
+    var bw = bm * pxPerM, bx = x + 18, by = y + h - 24;
+    out += '<rect x="' + (bx-8) + '" y="' + (by-20) + '" width="' + (bw+62) + '" height="32" fill="' + C.sheet + '" opacity="0.88"/>';
+    for(var s2 = 0; s2 < 4; s2++)
+      out += '<rect x="' + (bx + bw*s2/4) + '" y="' + (by-7) + '" width="' + (bw/4) + '" height="7" fill="' +
+        (s2 % 2 ? C.sheet : C.ink) + '" stroke="' + C.ink + '" stroke-width="1"/>';
+    out += txt(bx, by - 12, "0", { fill:C.ink2, size:10, mono:true, anchor:"middle" });
+    out += txt(bx + bw + 8, by, bm + " m", { fill:C.ink, size:11.5, mono:true });
+    if(layers.length > 1) out += legendLayers(layers, L, C, st, F.x, F.y - 12);
+  }
+  return out;
+};
+
+function legendLayers(layers, L, C, st, x, y){
+  var out = "", cx = x;
+  layers.forEach(function(nm, i){
+    var kind = (L.filter(function(r){ return r.layer === nm; })[0] || {}).kind || "點";
+    var col = C.pal[i % C.pal.length];
+    out += '<circle cx="' + (cx+6) + '" cy="' + (y-4) + '" r="6" ' + markFill(col, st, C) + '/>';
+    out += txt(cx + 18, y, nm.split("|")[0] + "（" + kind + "）", { fill:C.ink2, size:11.5 });
+    cx += 34 + nm.split("|")[0].length * 12;
+  });
+  return out;
+}
+
+/* ---------- vertical circulation, read as a section ---------- */
+DRAW.section = function(d, C, st){
+  var n = d.rows.length;
+  if(!n) return "";
+  var depths = d.rows.map(function(r){ return Math.max(0.1, r.values[0] || 1); });
+  var maxD = Math.max.apply(null, depths);
+  var coreW = 74, labW = 96;
+  var left = F.x + labW, span = F.w - labW - coreW - 40;
+  var fh = Math.min(74, (F.h - 40) / n), top = F.y + 20;
+  var out = "", ground = null;
+  var order = d.rows.slice().reverse();          // input reads top floor first, draw bottom up
+
+  d.rows.forEach(function(r, i){
+    var y = top + i * fh, wd = span * depths[i] / maxD;
+    var parts = r.label.split("|"), floor = parts[0], prog = parts[1] || "";
+    var col = C.pal[i % C.pal.length];
+    if(/^b/i.test(floor) && ground === null) ground = y;
+    out += '<g><title>' + esc(floor + (prog ? " · " + prog : "") + "　進深 " + fmt(depths[i])) + '</title>' +
+      '<rect x="' + left + '" y="' + y + '" width="' + wd + '" height="' + (fh - st.gap - 2) +
+      '" rx="' + st.radius + '" ' + markFill(col, st, C) + '/></g>';
+    out += txt(left - 14, y + fh/2, floor, { fill:C.ink, size:13.5, weight:700, anchor:"end", baseline:"middle" });
+    if(prog) out += txt(left + 14, y + fh/2 + 4, prog,
+      { fill: st.fill >= .85 ? onColor(col, C.sheet, C.sheetInk) : C.ink, size:13, weight:600 });
+    out += '<line x1="' + left + '" y1="' + (y + fh - st.gap - 2) + '" x2="' + (left + wd) + '" y2="' + (y + fh - st.gap - 2) +
+      '" stroke="' + C.ink + '" stroke-width="1.2"/>';
+  });
+  if(ground !== null)
+    out += '<line x1="' + (F.x + 20) + '" y1="' + ground + '" x2="' + (F.x + F.w - 20) + '" y2="' + ground +
+      '" stroke="' + C.ink + '" stroke-width="2.4"/>';
+
+  // shafts: a stair and a lift run through whichever floors flag them
+  [{ k:1, dx:18, name:"樓梯", dash:"7 4" }, { k:2, dx:48, name:"電梯", dash:"9 3 2 3" }].forEach(function(sh){
+    var rows = d.rows.map(function(r, i){ return r.values[sh.k] > 0 ? i : -1; }).filter(function(i){ return i >= 0; });
+    if(!rows.length) return;
+    var x0 = left + span + sh.dx;
+    var y0 = top + Math.min.apply(null, rows) * fh + 6;
+    var y1 = top + (Math.max.apply(null, rows) + 1) * fh - 8;
+    out += '<line x1="' + x0 + '" y1="' + y0 + '" x2="' + x0 + '" y2="' + y1 + '" stroke="' + C.ink +
+      '" stroke-width="1.4" stroke-dasharray="' + sh.dash + '"/>';
+    out += head([x0, y0 + 14], [x0, y0], C.ink, 1.4) + head([x0, y1 - 14], [x0, y1], C.ink, 1.4);
+    out += txt(x0, y1 + 18, sh.name, { fill:C.ink2, size:11, mono:true, anchor:"middle" });
+    rows.forEach(function(i){
+      out += '<circle cx="' + x0 + '" cy="' + (top + i*fh + fh/2) + '" r="3.4" fill="' + C.ink + '"/>';
+    });
+  });
+  out += txt(F.x, F.y + F.h - 4, "水平寬度 ∝ " + d.cols[0] + "　·　" + n + " 層", { fill:C.ink3, size:11, mono:true });
+  return out;
+};
+
+
+/* ---------- sheet frame + titleblock ---------- */
+function palOf(){
+  var p = PALETTES.filter(function(x){ return x.id === S.pal; })[0] || PALETTES[0];
+  var base = S.ground === "ink" ? p.dark : p.light;
+  if(S.logic !== "tier") return base;
+  // hierarchy mode: one hue at descending strength — how an architecture board actually reads
+  var sheet = S.ground === "ink" ? "#181c1b" : "#fcfcfb";
+  return [1, .82, .66, .5, .36, .24].map(function(t){ return mix(sheet, base[0], t); });
+}
+function colors(){
+  var ink = S.ground === "ink";
+  return {
+    sheet: ink ? "#181c1b" : "#fcfcfb",
+    sheetInk: ink ? "#181c1b" : "#fcfcfb",
+    ink: ink ? "#e7eae7" : "#1a1f22",
+    ink2: ink ? "#98a19d" : "#69726f",
+    ink3: ink ? "#717977" : "#98a09c",
+    line: ink ? "#343b39" : "#c8cfca",
+    pal: palOf(), palId: S.pal
+  };
+}
+
+function readData(){
+  if(S.type !== "site") return parse(ta.value);
+  var site = parseSite(ta.value);
+  return { cols:["值"], site:site,
+    rows: site.map(function(r){
+      return { label: r.layer.split("|")[0] + " · " + r.name + "（" + r.kind + "）", values:[r.v] }; }) };
+}
+
+// board mode: panels are the layers (site) or the value columns (everything else)
+function panelsOf(d){
+  if(S.type === "site"){
+    var seen = [];
+    (d.site || []).forEach(function(r){
+      if(r.kind !== "基地" && seen.indexOf(r.layer) < 0) seen.push(r.layer); });
+    return seen.map(function(nm){
+      return { title:nm, data:{ cols:["值"],
+        site:(d.site || []).filter(function(r){ return r.kind === "基地" || r.layer === nm; }) } };
+    });
+  }
+  return d.cols.map(function(c, j){
+    return { title:c, data:{ cols:[c.split("|")[0]],
+      rows: d.rows.map(function(r){ return { label:r.label, values:[r.values[j]] }; }) } };
+  });
+}
+
+function drawBoard(d, C, st){
+  var grid = BOARDS[S.board] || BOARDS["3x2"], cols = grid[0], rows = grid[1];
+  var panels = panelsOf(d).slice(0, cols * rows);
+  if(!panels.length) return txt(F.x, F.y + 70, "沒有可分格的圖層", { fill:C.ink2, size:16 });
+  var gx = 24, gy = 34;
+  var pw = (F.w - gx*(cols-1)) / cols, ph = (F.h - gy*(rows-1)) / rows;
+  var keep = { x:F.x, y:F.y, w:F.w, h:F.h }, out = "";
+
+  panels.forEach(function(p, i){
+    var c = i % cols, r = Math.floor(i / cols);
+    var px = keep.x + c*(pw + gx), py = keep.y + r*(ph + gy);
+    var s = pw / 1120, vbW = 1120, vbH = Math.round(1120 * ph / pw);
+    var circle = S.frame === "circle";
+
+    F.x = 46; F.w = vbW - 92;
+    F.y = circle ? 20 : 78; F.h = vbH - F.y - (circle ? 96 : 26);
+    TXT_K = Math.min(3.2, Math.max(1, 0.62 / s));
+    PANEL = true;
+    var k = i % C.pal.length;
+    var C2 = S.panelColor ? Object.assign({}, C, { pal: C.pal.slice(k).concat(C.pal.slice(0, k)) }) : C;
+    var body = DRAW[S.type](p.data, C2, st);
+    PANEL = false;
+
+    var t = String(p.title).split("|"), cn = t[0], en = (t[1] || "").toUpperCase();
+    var chrome = "";
+    if(circle){
+      var cx = vbW/2, cy = F.y + F.h/2, rr = Math.min(F.w, F.h)/2;
+      var cid = "dgmP" + (++UID);
+      chrome += '<clipPath id="' + cid + '"><circle cx="' + cx + '" cy="' + cy + '" r="' + rr + '"/></clipPath>';
+      body = '<g clip-path="url(#' + cid + ')">' + body + '</g>' +
+        '<circle cx="' + cx + '" cy="' + cy + '" r="' + rr + '" fill="none" stroke="' + C.line + '" stroke-width="1.2"/>';
+      chrome += txt(cx, vbH - 42, cn, { fill:C.ink, size:15, weight:700, anchor:"middle" });
+      if(en) chrome += txt(cx, vbH - 18, en, { fill:C.ink3, size:10, mono:true, ls:"1.5", anchor:"middle" });
+    } else {
+      chrome += '<rect x="0" y="0" width="34" height="34" fill="' + C.ink + '"/>' +
+        txt(17, 24, String(i+1), { fill:C.sheet, size:17, weight:700, mono:true, anchor:"middle" });
+      chrome += txt(46, 22, cn, { fill:C.ink, size:17, weight:700 });
+      if(en) chrome += txt(46, 46, en, { fill:C.ink3, size:10.5, mono:true, ls:"1.5" });
+      chrome += '<line x1="0" y1="62" x2="' + vbW + '" y2="62" stroke="' + C.ink + '" stroke-width="1.4"/>';
+      chrome += '<rect x="0" y="62" width="' + vbW + '" height="' + (vbH - 62) +
+        '" fill="none" stroke="' + C.line + '" stroke-width="1"/>';
+    }
+    out += '<svg x="' + px + '" y="' + py + '" width="' + pw + '" height="' + ph +
+      '" viewBox="0 0 ' + vbW + ' ' + vbH + '">' + chrome + body + '</svg>';
+  });
+
+  F.x = keep.x; F.y = keep.y; F.w = keep.w; F.h = keep.h;
+  TXT_K = 1;
+  return out;
+}
+
+function render(){
+  applySize();
+  var d = readData();
+  var st = STYLES[S.style], C = colors();
+  var board = S.layout === "board";
+  var hasLegend = !board && d.cols.length > 1 && ["stack","column","radar"].indexOf(S.type) >= 0;
+  F.y = M + 96 + (hasLegend ? 18 : 0);
+  F.h = (H - M - 88) - F.y - 18;
+  UID = 0; TXT_K = 1; PANEL = false;
+
+  var empty = S.type === "site" ? !(d.site || []).length : !d.rows.length;
+  var body = empty ? txt(F.x, F.y + 70, "貼上數值後這裡會出現分析圖", { fill:C.ink2, size:16 })
+    : board ? drawBoard(d, C, st) : DRAW[S.type](d, C, st);
+
+  var tbY = H - M - 88, tbH = 88;
+  var frame =
+    '<defs><filter id="dgmGray"><feColorMatrix type="saturate" values="0"/>' +
+      '<feComponentTransfer><feFuncR type="linear" slope="0.86" intercept="0.10"/>' +
+      '<feFuncG type="linear" slope="0.86" intercept="0.10"/>' +
+      '<feFuncB type="linear" slope="0.86" intercept="0.10"/></feComponentTransfer></filter></defs>' +
+    '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="' + C.sheet + '"/>' +
+    '<rect x="' + M + '" y="' + M + '" width="' + (W - 2*M) + '" height="' + (H - 2*M) +
+      '" fill="none" stroke="' + C.ink + '" stroke-width="1.6"/>' +
+    '<line x1="' + M + '" y1="' + tbY + '" x2="' + (W - M) + '" y2="' + tbY +
+      '" stroke="' + C.ink + '" stroke-width="1.6"/>' +
+    txt(F.x, M + 52, $("tTitle").value || "未命名分析圖", { fill:C.ink, size:28, weight:700, raw:true }) +
+    txt(F.x, M + 76, TYPES.filter(function(t){ return t.id === S.type; })[0].en.toUpperCase() +
+      "　·　" + STYLES[S.style].name + (board ? "　·　" + S.board.replace("x", " × ") : ""),
+      { fill:C.ink3, size:11, mono:true, ls:"1.6", raw:true });
+
+  if(hasLegend) frame += legend(d.cols, C, st, F.x, M + 100, F.w);
+
+  var mm = sheetMM(), opx = outPx();
+  var cells = [
+    ["專案 PROJECT", $("tProject").value || "—"],
+    ["圖種 DIAGRAM", TYPES.filter(function(t){ return t.id === S.type; })[0].name],
+    ["圖幅 SHEET", (SIZES[S.size] || SIZES.a3).name + (S.portrait ? " 直" : " 橫") + "  " + mm[0] + "×" + mm[1] + "mm"],
+    ["圖號 NO.", $("tNo").value || "—"]
+  ];
+  var cw = (W - 2*M) / cells.length, tb = "", vsz = W < 900 ? 12.5 : 15;
+  cells.forEach(function(c, i){
+    var x = M + cw * i;
+    if(i) tb += '<line x1="' + x + '" y1="' + tbY + '" x2="' + x + '" y2="' + (tbY + tbH) +
+      '" stroke="' + C.line + '" stroke-width="1"/>';
+    tb += txt(x + 18, tbY + 30, c[0], { fill:C.ink3, size:10, mono:true, ls:"1.4", raw:true });
+    tb += txt(x + 18, tbY + 58, c[1], { fill:C.ink, size:vsz, weight:600, raw:true });
+  });
+  tb += txt(M + 18, H - M + 18, "日期 " + new Date().toISOString().slice(0, 10) +
+    "　·　輸出 " + opx[0] + " × " + opx[1] + " px @ " + S.dpi + " dpi",
+    { fill:C.ink3, size:10, mono:true, raw:true });
+
+  sheetEl.innerHTML = frame + '<g>' + body + '</g>' + tb;
+  paintUI(d);
+}
+
+/* ---------- who uses the site ---------- */
+function person(x, y, h, fill){
+  var r = h * 0.165;
+  return '<g transform="translate(' + x.toFixed(1) + ',' + y.toFixed(1) + ')">' +
+    '<circle cx="0" cy="' + (-h + r).toFixed(1) + '" r="' + r.toFixed(1) + '" fill="' + fill + '"/>' +
+    '<path d="M' + (-h*0.21) + ' ' + (-h + r*2.5) + ' L' + (h*0.21) + ' ' + (-h + r*2.5) +
+    ' L' + (h*0.15) + ' ' + (-h*0.36) + ' L' + (h*0.10) + ' 0 L' + (h*0.025) + ' 0 L0 ' + (-h*0.32) +
+    ' L' + (-h*0.025) + ' 0 L' + (-h*0.10) + ' 0 L' + (-h*0.15) + ' ' + (-h*0.36) +
+    ' Z" fill="' + fill + '"/></g>';
+}
+
+// cols: 佔比%, 年齡下, 年齡上, 進場時, 離場時
+DRAW.users = function(d, C, st){
+  var n = d.rows.length;
+  if(!n) return "";
+  var top = F.y + 52, rowH = Math.min(92, (F.h - 66) / n);
+  var labW = 132, ageW = 168, timeW = 232;
+  var figX = F.x + labW, figW = F.w - labW - ageW - timeW - 56;
+  var ageX = figX + figW + 28, timeX = ageX + ageW + 28;
+  var AGE_MAX = 90, H0 = 5, H1 = 24;
+  var shares = d.rows.map(function(r){ return Math.max(0, r.values[0] || 0); });
+  var total = shares.reduce(function(a, b){ return a + b; }, 0) || 100;
+  var out = "";
+
+  out += txt(F.x, top - 22, "族群 GROUP", { fill:C.ink3, size:10, mono:true, ls:"1.4" });
+  out += txt(figX, top - 22, "佔比 SHARE（1 人 ≈ " + (total/24).toFixed(1) + "%）", { fill:C.ink3, size:10, mono:true, ls:"1.4" });
+  out += txt(ageX, top - 22, "年齡 AGE", { fill:C.ink3, size:10, mono:true, ls:"1.4" });
+  out += txt(timeX, top - 22, "使用時段 HOURS", { fill:C.ink3, size:10, mono:true, ls:"1.4" });
+
+  [0, 30, 60, 90].forEach(function(a){
+    var gx = ageX + ageW * a / AGE_MAX;
+    out += '<line x1="' + gx + '" y1="' + (top - 8) + '" x2="' + gx + '" y2="' + (top + n*rowH - 12) +
+      '" stroke="' + C.line + '" stroke-width="1" stroke-dasharray="2 4"/>';
+    out += txt(gx, top - 12, String(a), { fill:C.ink3, size:9.5, mono:true, anchor:"middle" });
+  });
+  [6, 12, 18, 24].forEach(function(hh){
+    var gx = timeX + timeW * (hh - H0) / (H1 - H0);
+    out += '<line x1="' + gx + '" y1="' + (top - 8) + '" x2="' + gx + '" y2="' + (top + n*rowH - 12) +
+      '" stroke="' + C.line + '" stroke-width="1" stroke-dasharray="2 4"/>';
+    out += txt(gx, top - 12, hh + ":00", { fill:C.ink3, size:9.5, mono:true, anchor:"middle" });
+  });
+
+  d.rows.forEach(function(r, i){
+    var y = top + i * rowH, mid = y + rowH/2 - 8, col = C.pal[i % C.pal.length];
+    var share = shares[i], v = r.values;
+    var nm = r.label.split("|");
+
+    out += txt(F.x, mid - 4, nm[0], { fill:C.ink, size:15, weight:700 });
+    if(nm[1]) out += txt(F.x, mid + 15, nm[1].toUpperCase(), { fill:C.ink3, size:9.5, mono:true, ls:"1.3" });
+    out += txt(F.x, mid + (nm[1] ? 33 : 17), share.toFixed(0) + "%", { fill:C.ink2, size:13, mono:true, weight:600 });
+
+    var count = Math.max(1, Math.round(share / (total/24)));
+    var fh = Math.min(rowH * 0.62, 44), step = Math.min(fh * 0.62, figW / Math.max(count, 1));
+    out += '<g><title>' + esc(nm[0] + "：" + share.toFixed(1) + "%") + '</title>';
+    for(var k = 0; k < count && figX + k*step < figX + figW; k++)
+      out += person(figX + step*(k + 0.5), mid + fh/2, fh, col);
+    out += '</g>';
+
+    var a0 = Math.max(0, v[1] || 0), a1 = Math.min(AGE_MAX, v[2] || AGE_MAX);
+    var ax = ageX + ageW * a0 / AGE_MAX, aw = Math.max(3, ageW * (a1 - a0) / AGE_MAX);
+    out += '<g><title>' + esc(nm[0] + " 年齡 " + a0 + "–" + a1) + '</title>' +
+      '<rect x="' + ax + '" y="' + (mid - 7) + '" width="' + aw + '" height="14" rx="' + Math.min(7, st.radius + 2) + '" ' +
+      markFill(col, st, C) + '/></g>';
+    out += txt(ax + aw + 8, mid + 4, a0 + "–" + a1, { fill:C.ink2, size:11, mono:true });
+
+    var t0 = Math.max(H0, v[3] || H0), t1 = Math.min(H1, v[4] || H1);
+    var tx = timeX + timeW * (t0 - H0) / (H1 - H0), tw = Math.max(3, timeW * (t1 - t0) / (H1 - H0));
+    out += '<g><title>' + esc(nm[0] + " 使用 " + t0 + ":00–" + t1 + ":00") + '</title>' +
+      '<rect x="' + tx + '" y="' + (mid - 7) + '" width="' + tw + '" height="14" rx="' + Math.min(7, st.radius + 2) + '" ' +
+      markFill(col, st, C) + '/></g>';
+    out += txt(tx + tw/2, mid + 4.5, (t1 - t0) + " h",
+      { fill: st.fill >= .85 ? onColor(col, C.sheet, C.sheetInk) : C.ink, size:10.5, mono:true, weight:600, anchor:"middle" });
+
+    if(i) out += '<line x1="' + F.x + '" y1="' + (y - 6) + '" x2="' + (F.x + F.w) + '" y2="' + (y - 6) +
+      '" stroke="' + C.line + '" stroke-width="1"/>';
+  });
+  return out;
+};
+
+/* ---------- UI ---------- */
+function paintUI(d){
+  var rec = recommend(d);
+  Array.prototype.forEach.call($("types").children, function(b){
+    var on = b.dataset.t === S.type;
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    var dot = b.querySelector(".rec");
+    if(rec[b.dataset.t] && !dot){ var i = document.createElement("i"); i.className = "rec"; b.appendChild(i); }
+    if(!rec[b.dataset.t] && dot) dot.remove();
+  });
+  var names = Object.keys(rec).map(function(k){
+    return (TYPES.filter(function(t){ return t.id === k; })[0] || {}).name; }).filter(Boolean);
+  $("recText").textContent = names.length ? "這組數值適合：" + names.join("、") : "貼上數值後會在這裡推薦圖種";
+
+  var cur = TYPES.filter(function(t){ return t.id === S.type; })[0];
+  $("shapeNote").textContent = d.rows.length
+    ? (S.type === "site" ? (d.site || []).length + " 個圖層物件" : d.rows.length + " 筆 × " + d.cols.length + " 欄") +
+      "　·　" + cur.shape
+    : "尚未輸入數值";
+
+  var t = $("readout"), h = "<thead><tr><th>標籤</th>";
+  d.cols.forEach(function(c){ h += "<th>" + esc(String(c).split("|")[0]) + "</th>"; });
+  h += "</tr></thead><tbody>";
+  d.rows.forEach(function(r){
+    h += "<tr><td>" + esc(String(r.label).split("|")[0]) + "</td>";
+    r.values.forEach(function(v){ h += "<td>" + fmt(v) + "</td>"; });
+    h += "</tr>";
+  });
+  t.innerHTML = h + "</tbody>";
+
+  var mm = sheetMM(), px = outPx();
+  $("pxNote").textContent = (SIZES[S.size] || SIZES.a3).name + (S.portrait ? " 直式" : " 橫式") +
+    "　" + mm[0] + "×" + mm[1] + " mm　→　" + px[0] + " × " + px[1] + " px @ " + S.dpi + " dpi";
+}
+
+/* generic segmented control: wires clicks, keeps aria-pressed in sync */
+function seg(id, attr, get, set){
+  var el = $(id);
+  Array.prototype.forEach.call(el.children, function(b){
+    b.onclick = function(){ set(b.dataset[attr]); save(); render(); syncAll(); };
+  });
+  el._sync = function(){
+    Array.prototype.forEach.call(el.children, function(b){
+      b.setAttribute("aria-pressed", b.dataset[attr] === String(get()) ? "true" : "false"); });
+  };
+}
+
+TYPES.forEach(function(t){
+  var b = document.createElement("button");
+  b.className = "type"; b.dataset.t = t.id; b.type = "button";
+  b.innerHTML = '<span>' + t.name + '</span><em>' + t.en + '</em>';
+  b.onclick = function(){
+    S.data[S.type] = ta.value;
+    S.type = t.id;
+    ta.value = S.data[t.id] || SAMPLES[t.id] || "";
+    save(); render(); syncAll();
+  };
+  $("types").appendChild(b);
+});
+
+var THUMBS = {
+  draft:'<rect x="1" y="6" width="22" height="12" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="27" y="2" width="22" height="16" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+  solid:'<rect x="1" y="6" width="22" height="12" fill="currentColor"/><rect x="27" y="2" width="22" height="16" fill="currentColor" opacity=".55"/>',
+  outline:'<rect x="1.5" y="6.5" width="21" height="11" fill="none" stroke="currentColor" stroke-width="2.2"/><rect x="27.5" y="2.5" width="21" height="15" fill="none" stroke="currentColor" stroke-width="2.2"/>',
+  soft:'<rect x="1" y="6" width="22" height="12" rx="5" fill="currentColor" opacity=".85"/><rect x="27" y="2" width="22" height="16" rx="5" fill="currentColor" opacity=".45"/>'
+};
+Object.keys(STYLES).forEach(function(k){
+  var b = document.createElement("button");
+  b.className = "sty"; b.dataset.s = k; b.type = "button";
+  b.innerHTML = '<svg viewBox="0 0 50 20" aria-hidden="true">' + THUMBS[k] + '</svg><span>' + STYLES[k].name + '</span>';
+  b.onclick = function(){ S.style = k; save(); render(); syncAll(); };
+  $("styles").appendChild(b);
+});
+PALETTES.forEach(function(p){
+  var b = document.createElement("button");
+  b.className = "pal"; b.dataset.p = p.id; b.type = "button";
+  b.innerHTML = '<span>' + p.name + '</span><span class="chips">' +
+    p.light.map(function(c){ return '<i style="background:' + c + '"></i>'; }).join("") + '</span>';
+  b.onclick = function(){ S.pal = p.id; save(); render(); syncAll(); };
+  $("pals").appendChild(b);
+});
+
+seg("groundSeg", "g",      function(){ return S.ground; },  function(v){ S.ground = v; });
+seg("layoutSeg", "l",      function(){ return S.layout; },  function(v){ S.layout = v; });
+seg("boardSeg",  "b",      function(){ return S.board; },   function(v){ S.board = v; });
+seg("frameSeg",  "f",      function(){ return S.frame; },   function(v){ S.frame = v; });
+seg("logicSeg",  "lg",     function(){ return S.logic; },   function(v){ S.logic = v; });
+seg("sizeSeg",   "z",      function(){ return S.size; },    function(v){ S.size = v; });
+seg("oriSeg",    "o",      function(){ return S.portrait ? "port" : "land"; }, function(v){ S.portrait = (v === "port"); });
+seg("dpiSeg",    "d",      function(){ return S.dpi; },     function(v){ S.dpi = Number(v); });
+seg("treatSeg",  "t",      function(){ return S.map.treat; }, function(v){ S.map.treat = v; });
+
+$("panelColor").onchange = function(){ S.panelColor = $("panelColor").checked; save(); render(); };
+$("mLink").onchange = function(){ S.map.link = $("mLink").checked; save(); render(); };
+
+function syncAll(){
+  ["groundSeg","layoutSeg","boardSeg","frameSeg","logicSeg","sizeSeg","oriSeg","dpiSeg","treatSeg"]
+    .forEach(function(id){ $(id)._sync(); });
+  Array.prototype.forEach.call($("styles").children, function(b){
+    b.setAttribute("aria-pressed", b.dataset.s === S.style ? "true" : "false"); });
+  Array.prototype.forEach.call($("pals").children, function(b){
+    b.setAttribute("aria-pressed", b.dataset.p === S.pal ? "true" : "false"); });
+  $("boardOpts").hidden = S.layout !== "board";
+  $("panelColor").checked = !!S.panelColor;
+  $("mapSec").hidden = S.type !== "site";
+  $("sheetbox").classList.toggle("placing", S.type === "site" && !!S.map.img);
+  var set = function(id, v){ var el = $(id); if(document.activeElement !== el) el.value = v; };
+  set("mWidth", S.map.widthM); set("mRings", S.map.rings); set("mNorth", S.map.north);
+  $("mLink").checked = !!S.map.link;
+}
+
+/* ---------- base map ---------- */
+function loadImage(file){
+  if(!file || !/^image\//.test(file.type)) return;
+  var fr = new FileReader();
+  fr.onload = function(){
+    var im = new Image();
+    im.onload = function(){
+      var k = Math.min(1, 1600 / im.naturalWidth);
+      var c = document.createElement("canvas");
+      c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k);
+      c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+      S.map.img = c.toDataURL("image/jpeg", 0.86);
+      S.map.imgAR = c.width / c.height;
+      if(S.type !== "site"){ S.data[S.type] = ta.value; S.type = "site"; ta.value = S.data.site || SAMPLES.site; }
+      save(); render(); syncAll();
+    };
+    im.onerror = function(){ $("copyNote").textContent = "這個檔案讀不出來，換一張圖片"; };
+    im.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+$("pickImg").onclick = function(){ $("fileImg").click(); };
+$("fileImg").onchange = function(e){ loadImage(e.target.files[0]); e.target.value = ""; };
+$("clearImg").onclick = function(){ S.map.img = ""; S.map.imgAR = 0; save(); render(); syncAll(); };
+[["mWidth","widthM"], ["mRings","rings"], ["mNorth","north"]].forEach(function(p){
+  $(p[0]).oninput = function(){ S.map[p[1]] = $(p[0]).value; save(); render(); };
+});
+window.addEventListener("paste", function(e){
+  var items = (e.clipboardData || {}).items || [];
+  for(var i = 0; i < items.length; i++)
+    if(/^image\//.test(items[i].type)){ e.preventDefault(); loadImage(items[i].getAsFile()); return; }
+});
+sheetEl.addEventListener("click", function(e){
+  if(S.type !== "site" || !IMG || !S.map.img || S.layout === "board") return;
+  var b = sheetEl.getBoundingClientRect();
+  var sx = (e.clientX - b.left) / b.width * W, sy = (e.clientY - b.top) / b.height * H;
+  var px = (sx - IMG.x) / IMG.w * 100, py = (sy - IMG.y) / IMG.h * 100;
+  if(px < 0 || px > 100 || py < 0 || py > 100) return;
+  var rows = parseSite(ta.value).filter(function(r){ return r.kind !== "基地"; });
+  var layer = rows.length ? rows[rows.length - 1].layer : "新圖層";
+  ta.value = ta.value.replace(/\s*$/, "") + "\n" + layer + ", 新點位, 點, " +
+    px.toFixed(1) + " " + py.toFixed(1) + ", 1000";
+  S.data.site = ta.value; save(); render();
+  var at = ta.value.lastIndexOf("新點位");
+  ta.focus(); ta.setSelectionRange(at, at + 3);
+});
+
+/* ---------- data + titleblock ---------- */
+$("loadSample").onclick = function(){ ta.value = SAMPLES[S.type] || ""; S.data[S.type] = ta.value; save(); render(); };
+ta.oninput = function(){ S.data[S.type] = ta.value; save(); render(); };
+["tTitle","tProject","tNo"].forEach(function(id){ $(id).oninput = render; });
+
+/* ---------- export ---------- */
+function svgText(){
+  var c = sheetEl.cloneNode(true);
+  c.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  c.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+  c.setAttribute("width", W); c.setAttribute("height", H);
+  return c.outerHTML;
+}
+function note(msg, ok){
+  var el = $("copyNote");
+  el.textContent = msg; el.className = ok ? "ok" : "";
+  if(ok) setTimeout(function(){ if(el.textContent === msg) el.textContent = ""; }, 5000);
+}
+$("copySvg").onclick = function(){
+  navigator.clipboard.writeText('<?xml version="1.0" encoding="UTF-8"?>\n' + svgText()).then(
+    function(){ note("已複製向量碼 — 貼進 Illustrator／Figma 可編輯", true); },
+    function(){ note("瀏覽器擋下剪貼簿，改用列印／存成 PDF"); });
+};
+$("copyPng").onclick = function(){
+  var px = outPx();
+  note("正在算圖 " + px[0] + " × " + px[1] + " px…");
+  var im = new Image();
+  im.onload = function(){
+    var cv = document.createElement("canvas");
+    cv.width = px[0]; cv.height = px[1];
+    var ctx = cv.getContext("2d");
+    ctx.fillStyle = S.ground === "ink" ? "#181c1b" : "#fcfcfb";
+    ctx.fillRect(0, 0, px[0], px[1]);
+    ctx.drawImage(im, 0, 0, px[0], px[1]);
+    cv.toBlob(function(b){
+      if(!b) return note("這個尺寸太大算不動，降一級 DPI 再試");
+      if(!window.ClipboardItem) return note("這個瀏覽器不支援複製圖片，改用複製 SVG 向量碼");
+      navigator.clipboard.write([new ClipboardItem({ "image/png": b })]).then(
+        function(){ note("已複製 " + px[0] + " × " + px[1] + " px PNG（字體為系統替代字）", true); },
+        function(){ note("瀏覽器擋下圖片剪貼簿，改用複製 SVG 向量碼或列印"); });
+    }, "image/png");
+  };
+  im.onerror = function(){ note("算圖失敗，改用複製 SVG 向量碼"); };
+  im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgText());
+};
+$("printBtn").onclick = function(){ window.print(); };
+
+if(!S.data[S.type]) S.data[S.type] = SAMPLES[S.type] || "";
+ta.value = S.data[S.type];
+render(); syncAll();
+})();
+</script>
+
+</body>
+</html>
