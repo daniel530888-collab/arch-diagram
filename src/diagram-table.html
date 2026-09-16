@@ -1008,10 +1008,15 @@ function legendLayers(layers, L, C, st, x, y){
   var out = "", cx = x;
   layers.forEach(function(nm, i){
     var kind = (L.filter(function(r){ return r.layer === nm; })[0] || {}).kind || "點";
-    var col = C.pal[i % C.pal.length];
-    out += '<circle cx="' + (cx+6) + '" cy="' + (y-4) + '" r="6" ' + markFill(col, st, C) + '/>';
-    out += txt(cx + 18, y, nm.split("|")[0] + "（" + kind + "）", { fill:C.ink2, size:11.5 });
-    cx += 34 + nm.split("|")[0].length * 12;
+    var label = nm.split("|")[0] + "（" + kind + "）";
+    // CJK glyphs are full-width, latin roughly half — measure the whole label, suffix included
+    var w = 0;
+    for(var k = 0; k < label.length; k++)
+      w += label.charCodeAt(k) > 0x2e7f ? 12 : 6.5;
+    if(cx + w + 24 > x + F.w) return;
+    out += '<circle cx="' + (cx + 6) + '" cy="' + (y - 4) + '" r="6" ' + markFill(C.pal[i % C.pal.length], st, C) + '/>';
+    out += txt(cx + 18, y, label, { fill:C.ink2, size:11.5 });
+    cx += 18 + w + 20;
   });
   return out;
 }
