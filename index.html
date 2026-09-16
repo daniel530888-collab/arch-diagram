@@ -212,10 +212,8 @@ details.tbl[open] summary{margin-bottom:12px}
       </div>
       <div class="row" style="margin-top:7px">
         <div class="seg" id="tileSeg">
-          <button data-k="plain" type="button">無標註</button>
-          <button data-k="light" type="button">淺色</button>
-          <button data-k="osm" type="button">OSM</button>
-          <button data-k="dark" type="button">深色</button>
+          <button data-k="aerial" type="button">航照</button>
+          <button data-k="gray" type="button">淺灰（≤ zoom 16）</button>
         </div>
       </div>
       <div class="row" style="margin-top:7px">
@@ -421,12 +419,13 @@ var S = { type:"share", style:"draft", pal:"draft", ground:"paper", data:{},
   layout:"single", board:"3x2", frame:"rect", panelColor:true,
   logic:"cat", size:"a3", portrait:false, dpi:300,
   map:{ img:"", imgAR:0, treat:"gray", widthM:600, rings:"150, 300, 500", north:0, link:false,
-        lat:"", lon:"", tiles:"plain", zoom:0, attrib:"" } };
+        lat:"", lon:"", tiles:"aerial", zoom:0, attrib:"" } };
 try{ var saved = JSON.parse(localStorage.getItem("dgm")||"{}");
      ["type","style","pal","ground","layout","board","frame","logic","size","dpi"].forEach(function(k){ if(saved[k]) S[k]=saved[k]; });
      ["portrait","panelColor"].forEach(function(k){ if(k in saved) S[k]=saved[k]; });
      if(saved.data) S.data = saved.data;
-     if(saved.map) Object.keys(S.map).forEach(function(k){ if(k in saved.map) S.map[k]=saved.map[k]; }); }catch(e){}
+     if(saved.map) Object.keys(S.map).forEach(function(k){ if(k in saved.map) S.map[k]=saved.map[k]; });
+     if(!(S.map.tiles in {aerial:1, gray:1})) S.map.tiles = "aerial"; }catch(e){}
 function save(){
   try{ localStorage.setItem("dgm", JSON.stringify(S)); }
   catch(e){ /* base image too big for the quota — keep everything else */
@@ -1436,14 +1435,10 @@ function syncAll(){
    Blocked inside the claude.ai Artifact sandbox (no external images); the upload path
    remains the fallback there.                                                        */
 var TILES = {
-  light: { name:"淺色", tpl:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
-           sub:["a","b","c","d"], size:512, attrib:"© OpenStreetMap contributors, © CARTO" },
-  plain: { name:"無標註", tpl:"https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png",
-           sub:["a","b","c","d"], size:512, attrib:"© OpenStreetMap contributors, © CARTO" },
-  osm:   { name:"OSM", tpl:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-           sub:[], size:256, attrib:"© OpenStreetMap contributors" },
-  dark:  { name:"深色", tpl:"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
-           sub:["a","b","c","d"], size:512, attrib:"© OpenStreetMap contributors, © CARTO" }
+  aerial: { name:"航照", tpl:"https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            sub:[], size:256, maxZ:19, attrib:"Esri, Maxar, Earthstar Geographics" },
+  gray:   { name:"淺灰", tpl:"https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+            sub:[], size:256, maxZ:16, attrib:"Esri, HERE, Garmin, © OpenStreetMap contributors" }
 };
 var MAP_W = 1400, MAP_H = 980;
 
@@ -1456,9 +1451,11 @@ function lat2px(lat, z, ts){
 function mppAt(lat, z, ts){
   return 156543.03392 * Math.cos(lat * Math.PI/180) / Math.pow(2, z) / (ts / 256);
 }
-function zoomFor(lat, widthM, ts){
+function zoomFor(lat, widthM, ts, maxZ){
   var z = Math.log(156543.03392 * Math.cos(lat * Math.PI/180) * MAP_W / (widthM * (ts/256))) / Math.LN2;
-  return Math.max(1, Math.min(19, Math.floor(z)));   // floor, so the sheet always covers at least the width asked for
+  // floor, so the sheet always covers at least the width asked for; maxZ is how deep the
+  // source actually has imagery — past it the server returns a "not available" placeholder
+  return Math.max(1, Math.min(maxZ || 19, Math.floor(z)));
 }
 
 function grabMap(){
@@ -1467,7 +1464,7 @@ function grabMap(){
   if(!isFinite(lat) || !isFinite(lon)) return mapNote("先搜尋地點，或直接填入緯度與經度");
   var widthM = Math.max(50, parseFloat(S.map.widthM) || 600);
 
-  var z = zoomFor(lat, widthM, ts);
+  var z = zoomFor(lat, widthM, ts, T.maxZ);
   var mpp = mppAt(lat, z, ts);
   var actualW = Math.round(MAP_W * mpp);
 
@@ -1480,7 +1477,7 @@ function grabMap(){
   var cv = document.createElement("canvas");
   cv.width = MAP_W; cv.height = MAP_H;
   var ctx = cv.getContext("2d");
-  ctx.fillStyle = S.map.tiles === "dark" ? "#121212" : "#f2f0eb";
+  ctx.fillStyle = S.map.tiles === "aerial" ? "#2a2f28" : "#f2f0eb";
   ctx.fillRect(0, 0, MAP_W, MAP_H);
 
   var total = (x1 - x0 + 1) * (y1 - y0 + 1), done = 0, failed = 0;
@@ -1497,8 +1494,11 @@ function grabMap(){
     S.map.attrib = T.attrib;
     if(S.type !== "site"){ S.data[S.type] = ta.value; S.type = "site"; ta.value = S.data.site || SAMPLES.site; }
     save(); render(); syncAll();
+    var capped = z >= T.maxZ && actualW > widthM * 1.6;
     mapNote("底圖完成：" + actualW + " m 寬，zoom " + z + "，" + mpp.toFixed(2) + " m/px" +
-      (failed ? "（" + failed + " 張圖磚失敗）" : ""), true);
+      (failed ? "（" + failed + " 張圖磚失敗）" : "") +
+      (capped ? " —— " + T.name + "最深只到 zoom " + T.maxZ + "，比你要的 " + Math.round(widthM) +
+                " m 寬。基地尺度請改用航照。" : ""), !capped);
   };
 
   for(var tx = x0; tx <= x1; tx++) for(var ty = y0; ty <= y1; ty++){
