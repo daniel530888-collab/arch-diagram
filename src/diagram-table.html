@@ -105,6 +105,10 @@ label.f input{font-family:var(--ui);font-size:13px;letter-spacing:0;text-transfo
   box-shadow:0 1px 2px rgba(0,0,0,.05)}
 .sheetbox svg{display:block;width:100%;height:auto;max-width:100%}
 .sheetbox.placing svg{cursor:crosshair}
+.hits{display:flex;flex-direction:column;gap:3px;margin-top:6px}
+.hits .hit{text-align:left;font-size:12px;line-height:1.35;padding:6px 8px;color:var(--ink2)}
+.hits .hit:hover{color:var(--ink)}
+.hint.ok{color:var(--accent)}
 .chk{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:13px;color:var(--ink2)}
 .chk input{accent-color:var(--accent);width:15px;height:15px}
 .stagebar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
@@ -185,7 +189,28 @@ details.tbl[open] summary{margin-bottom:12px}
     <section class="sec" id="mapSec" hidden>
       <h2>02b 地圖底圖 <b>Base Map</b></h2>
       <div class="row">
-        <button id="pickImg">選擇底圖</button>
+        <input id="mQuery" placeholder="搜尋地點或地址" style="flex:1;min-width:0">
+        <button id="searchBtn">搜尋</button>
+      </div>
+      <div id="mResults" class="hits"></div>
+      <div class="row" style="margin-top:7px">
+        <label class="f" style="flex:1;min-width:0">緯度 LAT<input id="mLat" inputmode="decimal"></label>
+        <label class="f" style="flex:1;min-width:0">經度 LON<input id="mLon" inputmode="decimal"></label>
+      </div>
+      <div class="row" style="margin-top:7px">
+        <div class="seg" id="tileSeg">
+          <button data-k="plain" type="button">無標註</button>
+          <button data-k="light" type="button">淺色</button>
+          <button data-k="osm" type="button">OSM</button>
+          <button data-k="dark" type="button">深色</button>
+        </div>
+      </div>
+      <div class="row" style="margin-top:7px">
+        <button id="grabBtn" class="btn-solid">抓取地圖底圖</button>
+      </div>
+      <p class="hint" id="mapNote">依「底圖實際寬度」自動選縮放級別，抓完會把寬度改寫成實測值。</p>
+      <div class="row" style="margin-top:12px">
+        <button id="pickImg">改用自己的圖</button>
         <button id="clearImg">移除</button>
         <input type="file" id="fileImg" accept="image/*" hidden>
       </div>
@@ -382,7 +407,8 @@ var BOARDS = { "2x2":[2,2], "3x2":[3,2], "3x3":[3,3], "4x2":[4,2], "1x3":[1,3] }
 var S = { type:"share", style:"draft", pal:"draft", ground:"paper", data:{},
   layout:"single", board:"3x2", frame:"rect", panelColor:true,
   logic:"cat", size:"a3", portrait:false, dpi:300,
-  map:{ img:"", imgAR:0, treat:"gray", widthM:600, rings:"150, 300, 500", north:0, link:false } };
+  map:{ img:"", imgAR:0, treat:"gray", widthM:600, rings:"150, 300, 500", north:0, link:false,
+        lat:"", lon:"", tiles:"plain", zoom:0, attrib:"" } };
 try{ var saved = JSON.parse(localStorage.getItem("dgm")||"{}");
      ["type","style","pal","ground","layout","board","frame","logic","size","dpi"].forEach(function(k){ if(saved[k]) S[k]=saved[k]; });
      ["portrait","panelColor"].forEach(function(k){ if(k in saved) S[k]=saved[k]; });
@@ -1187,7 +1213,8 @@ function render(){
     tb += txt(x + 18, tbY + 58, c[1], { fill:C.ink, size:vsz, weight:600, raw:true });
   });
   tb += txt(M + 18, H - M + 18, "日期 " + new Date().toISOString().slice(0, 10) +
-    "　·　輸出 " + opx[0] + " × " + opx[1] + " px @ " + S.dpi + " dpi",
+    "　·　輸出 " + opx[0] + " × " + opx[1] + " px @ " + S.dpi + " dpi" +
+    (S.type === "site" && S.map.attrib && S.map.img ? "　·　底圖 " + S.map.attrib : ""),
     { fill:C.ink3, size:10, mono:true, raw:true });
 
   sheetEl.innerHTML = frame + '<g>' + body + '</g>' + tb;
@@ -1364,12 +1391,13 @@ seg("sizeSeg",   "z",      function(){ return S.size; },    function(v){ S.size 
 seg("oriSeg",    "o",      function(){ return S.portrait ? "port" : "land"; }, function(v){ S.portrait = (v === "port"); });
 seg("dpiSeg",    "d",      function(){ return S.dpi; },     function(v){ S.dpi = Number(v); });
 seg("treatSeg",  "t",      function(){ return S.map.treat; }, function(v){ S.map.treat = v; });
+seg("tileSeg",   "k",      function(){ return S.map.tiles; }, function(v){ S.map.tiles = v; });
 
 $("panelColor").onchange = function(){ S.panelColor = $("panelColor").checked; save(); render(); };
 $("mLink").onchange = function(){ S.map.link = $("mLink").checked; save(); render(); };
 
 function syncAll(){
-  ["groundSeg","layoutSeg","boardSeg","frameSeg","logicSeg","sizeSeg","oriSeg","dpiSeg","treatSeg"]
+  ["groundSeg","layoutSeg","boardSeg","frameSeg","logicSeg","sizeSeg","oriSeg","dpiSeg","treatSeg","tileSeg"]
     .forEach(function(id){ $(id)._sync(); });
   Array.prototype.forEach.call($("styles").children, function(b){
     b.setAttribute("aria-pressed", b.dataset.s === S.style ? "true" : "false"); });
@@ -1381,7 +1409,137 @@ function syncAll(){
   $("sheetbox").classList.toggle("placing", S.type === "site" && !!S.map.img);
   var set = function(id, v){ var el = $(id); if(document.activeElement !== el) el.value = v; };
   set("mWidth", S.map.widthM); set("mRings", S.map.rings); set("mNorth", S.map.north);
+  set("mLat", S.map.lat); set("mLon", S.map.lon);
   $("mLink").checked = !!S.map.link;
+}
+
+/* ---------- real base maps, composed from tiles ----------
+   No map library: work out which tiles cover the requested ground, paint them onto a
+   canvas, hand the result to the existing S.map.img pipeline. Everything downstream
+   (points, flows, zones, wind, sun, rings, scale bar, board panels, SVG export) is
+   unchanged. The tile servers all send Access-Control-Allow-Origin: *, so the canvas
+   stays untainted and toDataURL() works.
+
+   Blocked inside the claude.ai Artifact sandbox (no external images); the upload path
+   remains the fallback there.                                                        */
+var TILES = {
+  light: { name:"淺色", tpl:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png",
+           sub:["a","b","c","d"], size:512, attrib:"© OpenStreetMap contributors, © CARTO" },
+  plain: { name:"無標註", tpl:"https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}@2x.png",
+           sub:["a","b","c","d"], size:512, attrib:"© OpenStreetMap contributors, © CARTO" },
+  osm:   { name:"OSM", tpl:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+           sub:[], size:256, attrib:"© OpenStreetMap contributors" },
+  dark:  { name:"深色", tpl:"https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png",
+           sub:["a","b","c","d"], size:512, attrib:"© OpenStreetMap contributors, © CARTO" }
+};
+var MAP_W = 1400, MAP_H = 980;
+
+function lon2px(lon, z, ts){ return (lon + 180) / 360 * Math.pow(2, z) * ts; }
+function lat2px(lat, z, ts){
+  var r = lat * Math.PI / 180;
+  return (1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * Math.pow(2, z) * ts;
+}
+// metres per output pixel — this is what makes the scale bar and the walking rings exact
+function mppAt(lat, z, ts){
+  return 156543.03392 * Math.cos(lat * Math.PI/180) / Math.pow(2, z) / (ts / 256);
+}
+function zoomFor(lat, widthM, ts){
+  var z = Math.log(156543.03392 * Math.cos(lat * Math.PI/180) * MAP_W / (widthM * (ts/256))) / Math.LN2;
+  return Math.max(1, Math.min(19, Math.floor(z)));   // floor, so the sheet always covers at least the width asked for
+}
+
+function grabMap(){
+  var T = TILES[S.map.tiles] || TILES.light, ts = T.size;
+  var lat = parseFloat(S.map.lat), lon = parseFloat(S.map.lon);
+  if(!isFinite(lat) || !isFinite(lon)) return mapNote("先搜尋地點，或直接填入緯度與經度");
+  var widthM = Math.max(50, parseFloat(S.map.widthM) || 600);
+
+  var z = zoomFor(lat, widthM, ts);
+  var mpp = mppAt(lat, z, ts);
+  var actualW = Math.round(MAP_W * mpp);
+
+  var cx = lon2px(lon, z, ts), cy = lat2px(lat, z, ts);
+  var tlx = cx - MAP_W/2, tly = cy - MAP_H/2;
+  var x0 = Math.floor(tlx/ts), x1 = Math.floor((tlx + MAP_W - 1)/ts);
+  var y0 = Math.floor(tly/ts), y1 = Math.floor((tly + MAP_H - 1)/ts);
+  var n = Math.pow(2, z);
+
+  var cv = document.createElement("canvas");
+  cv.width = MAP_W; cv.height = MAP_H;
+  var ctx = cv.getContext("2d");
+  ctx.fillStyle = S.map.tiles === "dark" ? "#121212" : "#f2f0eb";
+  ctx.fillRect(0, 0, MAP_W, MAP_H);
+
+  var total = (x1 - x0 + 1) * (y1 - y0 + 1), done = 0, failed = 0;
+  mapNote("抓取 " + total + " 張圖磚（zoom " + z + "）…");
+
+  var finish = function(){
+    if(done + failed < total) return;
+    if(failed === total)
+      return mapNote("圖磚一張都載不到 —— Artifact 沙箱會擋外部圖片，請改用上傳底圖，或開 GitHub Pages 版");
+    S.map.img = cv.toDataURL("image/jpeg", 0.9);
+    S.map.imgAR = MAP_W / MAP_H;
+    S.map.widthM = actualW;          // measured, not typed
+    S.map.zoom = z;
+    S.map.attrib = T.attrib;
+    if(S.type !== "site"){ S.data[S.type] = ta.value; S.type = "site"; ta.value = S.data.site || SAMPLES.site; }
+    save(); render(); syncAll();
+    mapNote("底圖完成：" + actualW + " m 寬，zoom " + z + "，" + mpp.toFixed(2) + " m/px" +
+      (failed ? "（" + failed + " 張圖磚失敗）" : ""), true);
+  };
+
+  for(var tx = x0; tx <= x1; tx++) for(var ty = y0; ty <= y1; ty++){
+    (function(tx, ty){
+      if(ty < 0 || ty >= n){ failed++; return finish(); }
+      var wrapped = ((tx % n) + n) % n;
+      var url = T.tpl.replace("{z}", z).replace("{x}", wrapped).replace("{y}", ty)
+        .replace("{s}", T.sub.length ? T.sub[(wrapped + ty) % T.sub.length] : "");
+      var im = new Image();
+      im.crossOrigin = "anonymous";
+      im.onload = function(){
+        ctx.drawImage(im, Math.round(tx*ts - tlx), Math.round(ty*ts - tly), ts, ts);
+        done++; finish();
+      };
+      im.onerror = function(){ failed++; finish(); };
+      im.src = url;
+    })(tx, ty);
+  }
+}
+
+function mapNote(msg, ok){
+  var el = $("mapNote");
+  el.textContent = msg;
+  el.className = "hint" + (ok ? " ok" : "");
+}
+
+function searchPlace(){
+  var q = $("mQuery").value.trim();
+  if(!q) return;
+  mapNote("搜尋中…");
+  fetch("https://nominatim.openstreetmap.org/search?format=json&limit=5&accept-language=zh-TW&q=" +
+        encodeURIComponent(q))
+    .then(function(r){ return r.json(); })
+    .then(function(rows){
+      var box = $("mResults");
+      box.innerHTML = "";
+      if(!rows.length) return mapNote("查無此地點，換個寫法或直接填經緯度");
+      rows.forEach(function(r){
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "hit";
+        b.textContent = r.display_name;
+        b.onclick = function(){
+          S.map.lat = parseFloat(r.lat).toFixed(6);
+          S.map.lon = parseFloat(r.lon).toFixed(6);
+          box.innerHTML = ""; $("mQuery").value = r.display_name.split(",")[0];
+          save(); syncAll(); grabMap();
+        };
+        box.appendChild(b);
+      });
+      mapNote(rows.length + " 筆結果，點一個");
+    })
+    .catch(function(){
+      mapNote("搜尋被擋下 —— Artifact 沙箱不允許外部請求，請用 GitHub Pages 版，或直接填經緯度");
+    });
 }
 
 /* ---------- base map ---------- */
@@ -1408,7 +1566,10 @@ function loadImage(file){
 $("pickImg").onclick = function(){ $("fileImg").click(); };
 $("fileImg").onchange = function(e){ loadImage(e.target.files[0]); e.target.value = ""; };
 $("clearImg").onclick = function(){ S.map.img = ""; S.map.imgAR = 0; save(); render(); syncAll(); };
-[["mWidth","widthM"], ["mRings","rings"], ["mNorth","north"]].forEach(function(p){
+$("searchBtn").onclick = searchPlace;
+$("mQuery").onkeydown = function(e){ if(e.key === "Enter"){ e.preventDefault(); searchPlace(); } };
+$("grabBtn").onclick = grabMap;
+[["mWidth","widthM"], ["mRings","rings"], ["mNorth","north"], ["mLat","lat"], ["mLon","lon"]].forEach(function(p){
   $(p[0]).oninput = function(){ S.map[p[1]] = $(p[0]).value; save(); render(); };
 });
 window.addEventListener("paste", function(e){
